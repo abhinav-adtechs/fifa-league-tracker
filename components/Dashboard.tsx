@@ -55,32 +55,32 @@ export const Dashboard: React.FC<DashboardProps> = ({ players, matches }) => {
     <div className="space-y-6">
         
       {/* KPI Cards */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-fifa-card p-4 rounded-xl border border-fifa-surface">
-            <div className="flex items-center gap-2 text-gray-400 text-xs uppercase font-bold mb-1">
-                <Activity className="w-4 h-4 text-fifa-green" /> Total Matches
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        <div className="bg-fifa-card p-3 sm:p-4 rounded-xl border border-fifa-surface card-shadow">
+            <div className="flex items-center gap-2 text-white text-[10px] sm:text-xs uppercase font-black mb-1">
+                <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-fifa-green" /> <span className="hidden sm:inline">Total Matches</span><span className="sm:hidden">Matches</span>
             </div>
-            <div className="text-3xl font-black text-white">{totalGames}</div>
+            <div className="text-2xl sm:text-3xl font-black text-fifa-accent">{totalGames}</div>
         </div>
-        <div className="bg-fifa-card p-4 rounded-xl border border-fifa-surface">
-            <div className="flex items-center gap-2 text-gray-400 text-xs uppercase font-bold mb-1">
-                <TrendingUp className="w-4 h-4 text-fifa-accent" /> Avg Goals/Match
+        <div className="bg-fifa-card p-3 sm:p-4 rounded-xl border border-fifa-surface card-shadow">
+            <div className="flex items-center gap-2 text-white text-[10px] sm:text-xs uppercase font-black mb-1">
+                <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-fifa-accent" /> <span className="hidden sm:inline">Avg Goals/Match</span><span className="sm:hidden">Avg Goals</span>
             </div>
-            <div className="text-3xl font-black text-white">{avgGoals}</div>
+            <div className="text-2xl sm:text-3xl font-black text-fifa-accent">{avgGoals}</div>
         </div>
-        <div className="bg-fifa-card p-4 rounded-xl border border-fifa-surface">
-            <div className="flex items-center gap-2 text-gray-400 text-xs uppercase font-bold mb-1">
-                <Award className="w-4 h-4 text-yellow-500" /> Golden Boot
+        <div className="bg-fifa-card p-3 sm:p-4 rounded-xl border border-fifa-surface card-shadow">
+            <div className="flex items-center gap-2 text-white text-[10px] sm:text-xs uppercase font-black mb-1">
+                <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-fifa-accent" /> Golden Boot
             </div>
-            <div className="truncate font-bold text-white">{topScorer?.name || '-'}</div>
-            <div className="text-xs text-gray-500">{topScorer?.gf || 0} Goals</div>
+            <div className="truncate font-black text-fifa-accent text-sm sm:text-base">{topScorer?.name || '-'}</div>
+            <div className="text-[10px] sm:text-xs text-white font-black">{topScorer?.gf || 0} Goals</div>
         </div>
       </div>
 
       {/* Chart */}
-      <div className="bg-fifa-card p-6 rounded-2xl border border-fifa-surface shadow-xl">
-        <h3 className="text-lg font-bold text-white mb-6">Season Trajectory (Points)</h3>
-        <div className="h-[300px] w-full">
+      <div className="bg-fifa-card p-4 sm:p-6 rounded-2xl border border-fifa-surface card-shadow">
+        <h3 className="text-base sm:text-lg font-black text-white mb-4 sm:mb-6">Season Trajectory (Points)</h3>
+        <div className="h-[250px] sm:h-[300px] w-full">
             {matches.length < 2 ? (
                 <div className="h-full flex items-center justify-center text-gray-500">
                     Not enough data to display trends. Play more matches!

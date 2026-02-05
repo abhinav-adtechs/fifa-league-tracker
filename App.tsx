@@ -18,6 +18,41 @@ const App: React.FC = () => {
   const [showMatchForm, setShowMatchForm] = useState(false);
   const [currentAdmin, setCurrentAdmin] = useState<Admin | null>(null);
 
+  // Player avatar mapping - FC26 themed with real player images
+  // Using reliable image sources with proper player IDs
+  const getPlayerAvatar = (name: string): string => {
+    const nameLower = name.toLowerCase().trim();
+    
+    // Player image mapping - using multiple reliable sources
+    const avatarMap: Record<string, string> = {
+      // Abhinav - Rayane Cherki (Lyon/PSG)
+      'abhinav': 'https://img.a.transfermarkt.technology/portrait/header/433179-1672832000.jpg?lm=1',
+      // Karan - Kylian Mbappé (PSG)
+      'karan': 'https://img.a.transfermarkt.technology/portrait/header/342229-1672832000.jpg?lm=1',
+      // Manan - Robert Lewandowski (Barcelona)
+      'manan': 'https://img.a.transfermarkt.technology/portrait/header/38253-1672832000.jpg?lm=1',
+      // Sagar - Erling Haaland (Manchester City)
+      'sagar': 'https://img.a.transfermarkt.technology/portrait/header/418560-1672832000.jpg?lm=1',
+      // Ayush - Lamine Yamal (Barcelona)
+      'ayush': 'https://img.a.transfermarkt.technology/portrait/header/636999-1672832000.jpg?lm=1'
+    };
+    
+    // Try exact match first
+    if (avatarMap[nameLower]) {
+      return avatarMap[nameLower];
+    }
+    
+    // Try partial match (handles variations like "Abhinav Das" matching "abhinav")
+    for (const [key, value] of Object.entries(avatarMap)) {
+      if (nameLower.includes(key) || key.includes(nameLower)) {
+        return value;
+      }
+    }
+    
+    // Fallback to themed dicebear with purple/yellow theme
+    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}&backgroundColor=fae100,6b46c1,1a1625`;
+  };
+
   // Initialize data and auth state
   useEffect(() => {
     const loadData = async () => {
@@ -25,7 +60,20 @@ const App: React.FC = () => {
         db.getPlayers(),
         db.getMatches()
       ]);
-      setPlayers(loadedPlayers);
+      
+      // Update player avatars to use new FC26 player images
+      const updatedPlayers = loadedPlayers.map(player => ({
+        ...player,
+        avatarUrl: getPlayerAvatar(player.name)
+      }));
+      
+      // Only save if avatars changed
+      const avatarsChanged = updatedPlayers.some((p, i) => p.avatarUrl !== loadedPlayers[i]?.avatarUrl);
+      if (avatarsChanged && updatedPlayers.length > 0) {
+        db.savePlayers(updatedPlayers).catch(console.error);
+      }
+      
+      setPlayers(updatedPlayers);
       setMatches(loadedMatches);
     };
 
@@ -47,8 +95,7 @@ const App: React.FC = () => {
     const newPlayer: Player = {
       id: crypto.randomUUID(),
       name,
-      // Auto-generate a beautiful avatar
-      avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}&backgroundColor=b6e3f4,c0aede,d1d4f9`,
+      avatarUrl: getPlayerAvatar(name),
       played: 0,
       wins: 0,
       draws: 0,
@@ -144,17 +191,33 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-fifa-dark pb-32">
       {/* Top Navbar */}
-      <div className="bg-fifa-dark border-b border-fifa-surface sticky top-0 z-40 backdrop-blur-md bg-opacity-90">
-        <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
-            <div className="flex items-center gap-3">
+      <div className="bg-fifa-dark/95 border-b border-fifa-surface sticky top-0 z-40 backdrop-blur-md">
+        <div className="max-w-4xl mx-auto px-3 sm:px-4 h-16 sm:h-20 flex items-center justify-between">
+            <div className="flex items-center gap-2 sm:gap-3">
+                {/* FC26 Logo */}
                 <div className="relative">
-                    <div className="absolute inset-0 bg-fifa-green blur opacity-50 rounded-lg"></div>
-                    <div className="relative bg-black p-1.5 rounded-lg border border-fifa-surface">
-                        <Gamepad2 className="w-5 h-5 text-fifa-green" />
+                    <div className="absolute inset-0 bg-fifa-accent blur opacity-30 rounded-lg"></div>
+                    <div className="relative bg-fifa-card p-1 sm:p-1.5 rounded-lg border border-fifa-surface card-shadow">
+                        <img 
+                            src="https://upload.wikimedia.org/wikipedia/en/thumb/0/05/FC_Barcelona_%28crest%29.svg/120px-FC_Barcelona_%28crest%29.svg.png" 
+                            alt="FC26" 
+                            className="w-6 h-6 sm:w-8 sm:h-8 object-contain"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              target.parentElement!.innerHTML = '<div class="w-6 h-6 sm:w-8 sm:h-8 bg-fc26-primary rounded flex items-center justify-center text-white font-bold text-xs">FC26</div>';
+                            }}
+                        />
                     </div>
                 </div>
-                <h1 className="text-xl font-black tracking-tighter text-white italic">
-                    FIFA <span className="text-fifa-green">LEAGUE</span>
+                {/* Superjoin Logo */}
+                <div className="hidden sm:block relative">
+                    <div className="relative bg-fifa-card p-1 rounded-lg border border-fifa-surface card-shadow">
+                        <span className="text-[10px] font-black text-fifa-accent px-1">SUPERJOIN</span>
+                    </div>
+                </div>
+                <h1 className="text-base sm:text-xl font-black tracking-tighter">
+                    <span className="text-white">FIFA</span> <span className="text-fifa-accent">LEAGUE</span>
                 </h1>
             </div>
             
@@ -168,18 +231,19 @@ const App: React.FC = () => {
                   setShowMatchForm(true);
                 }}
                 disabled={players.length < 2 || !currentAdmin}
-                className="bg-fifa-green hover:bg-emerald-400 disabled:bg-gray-800 disabled:text-gray-500 text-black font-bold py-2 px-4 rounded-full flex items-center gap-2 transition-all shadow-lg shadow-green-900/20 active:scale-95"
+                className="bg-fifa-accent hover:opacity-90 disabled:bg-fifa-surface disabled:text-fifa-muted text-black font-bold py-2 px-3 sm:px-4 rounded-full flex items-center gap-1 sm:gap-2 transition-all shadow-lg shadow-yellow-900/30 active:scale-95 text-xs sm:text-sm"
             >
-                <PlusCircle className="w-5 h-5" />
+                <PlusCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="hidden sm:inline">Result</span>
             </button>
         </div>
       </div>
 
-      <main className="max-w-4xl mx-auto px-4 py-8">
+      <main className="max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
         
-        {/* Navigation */}
-        <div className="grid grid-cols-5 gap-2 p-1 bg-fifa-card rounded-xl border border-fifa-surface mb-8 sticky top-20 z-30 shadow-2xl">
+        {/* Navigation - Tab Style */}
+        <div className="bg-fifa-card rounded-xl border border-fifa-surface mb-4 sm:mb-8 sticky top-16 sm:top-20 z-30 card-shadow overflow-hidden">
+          <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-4 px-2 sm:px-4 py-2 sm:py-3 overflow-x-auto">
             {[
                 { id: Tab.STANDINGS, label: 'Table', icon: Trophy },
                 { id: Tab.MATCHES, label: 'Matches', icon: History },
@@ -190,16 +254,19 @@ const App: React.FC = () => {
                 <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 py-3 rounded-lg text-[10px] sm:text-sm font-bold transition-all
+                    className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-bold transition-all relative whitespace-nowrap
                         ${activeTab === tab.id 
-                            ? 'bg-fifa-surface text-white shadow-md border border-white/10' 
-                            : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
+                            ? 'text-white' 
+                            : 'text-fifa-muted hover:text-white'}`}
                 >
-                    <tab.icon className="w-4 h-4 sm:w-4 sm:h-4" />
-                    <span className="hidden sm:inline">{tab.label}</span>
-                    <span className="sm:hidden">{tab.label.slice(0,3)}</span>
+                    <tab.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <span>{tab.label}</span>
+                    {activeTab === tab.id && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-fifa-accent"></div>
+                    )}
                 </button>
             ))}
+          </div>
         </div>
 
         <div className="animate-fade-in min-h-[50vh]">
@@ -237,8 +304,29 @@ const App: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="py-8 text-center text-gray-600 text-xs border-t border-fifa-surface bg-black/20">
-        <p>FIFA LEAGUE TRACKER • SEASON 1</p>
+      <footer className="py-6 sm:py-8 text-center text-fifa-muted text-xs border-t border-fifa-surface bg-fifa-card/50">
+        <div className="flex items-center justify-center gap-2 sm:gap-4 mb-2">
+          <img 
+            src="https://upload.wikimedia.org/wikipedia/en/thumb/0/05/FC_Barcelona_%28crest%29.svg/120px-FC_Barcelona_%28crest%29.svg.png" 
+            alt="FC26" 
+            className="h-4 sm:h-6 opacity-60"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+            }}
+          />
+          <img 
+            src="https://logos-world.net/wp-content/uploads/2021/02/FIFA-Logo.png" 
+            alt="FIFA" 
+            className="h-3 sm:h-5 opacity-60"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+            }}
+          />
+        </div>
+        <p className="text-[10px] sm:text-xs font-semibold">FIFA LEAGUE TRACKER • FC26 • SEASON 1</p>
+        <p className="text-[9px] sm:text-[10px] text-fifa-muted/70 mt-1">Powered by Superjoin</p>
       </footer>
 
       {/* Modal */}
