@@ -22,7 +22,6 @@ export interface Match {
   score1: number;
   score2: number;
   commentary?: string;
-  isAiLoading?: boolean;
 }
 
 export enum Tab {

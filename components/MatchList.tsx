@@ -122,19 +122,15 @@ export const MatchList: React.FC<MatchListProps> = ({ matches, players }) => {
                             </div>
                         </div>
 
-                        {(match.commentary || match.isAiLoading) && (
-                        <div className="mt-4 pt-4 border-t border-fifa-surface/50 flex gap-3 items-start">
-                            <div className="p-1.5 bg-gradient-to-br from-fifa-green to-blue-600 rounded-lg shadow-inner mt-0.5 shrink-0">
-                                <MessageSquare className="w-3 h-3 text-black" />
-                            </div>
-                            <p className="text-sm text-gray-300 italic leading-relaxed font-medium">
-                                {match.isAiLoading ? (
-                                    <span className="animate-pulse text-fifa-green">AI Analyst is analyzing the footage...</span>
-                                ) : (
-                                    `"${match.commentary}"`
-                                )}
-                            </p>
-                        </div>
+                        {match.commentary && (
+                          <div className="mt-4 pt-4 border-t border-fifa-surface/50 flex gap-3 items-start">
+                              <div className="p-1.5 bg-gradient-to-br from-fifa-green to-blue-600 rounded-lg shadow-inner mt-0.5 shrink-0">
+                                  <MessageSquare className="w-3 h-3 text-black" />
+                              </div>
+                              <p className="text-sm text-gray-300 italic leading-relaxed font-medium">
+                                  "{match.commentary}"
+                              </p>
+                          </div>
                         )}
                     </div>
                 </div>

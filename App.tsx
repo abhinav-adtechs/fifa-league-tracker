@@ -5,7 +5,6 @@ import { MatchList } from './components/MatchList';
 import { PlayerManager } from './components/PlayerManager';
 import { MatchForm } from './components/MatchForm';
 import { Dashboard } from './components/Dashboard';
-import { generateMatchCommentary } from './services/geminiService';
 import { db } from './services/storage';
 import { Trophy, Users, History, PlusCircle, Gamepad2, LayoutDashboard } from 'lucide-react';
 
@@ -17,8 +16,16 @@ const App: React.FC = () => {
 
   // Initialize data
   useEffect(() => {
-    setPlayers(db.getPlayers());
-    setMatches(db.getMatches());
+    const loadData = async () => {
+      const [loadedPlayers, loadedMatches] = await Promise.all([
+        db.getPlayers(),
+        db.getMatches()
+      ]);
+      setPlayers(loadedPlayers);
+      setMatches(loadedMatches);
+    };
+
+    loadData();
   }, []);
 
   const handleAddPlayer = (name: string) => {
@@ -40,13 +47,13 @@ const App: React.FC = () => {
     };
     const updated = [...players, newPlayer];
     setPlayers(updated);
-    db.savePlayers(updated);
+    db.savePlayers(updated).catch(console.error);
   };
 
   const handleDeletePlayer = (id: string) => {
     const updated = players.filter(p => p.id !== id);
     setPlayers(updated);
-    db.savePlayers(updated);
+    db.savePlayers(updated).catch(console.error);
   };
 
   const handleAddMatch = async (p1Id: string, p2Id: string, s1: number, s2: number) => {
@@ -57,14 +64,13 @@ const App: React.FC = () => {
       player1Id: p1Id,
       player2Id: p2Id,
       score1: s1,
-      score2: s2,
-      isAiLoading: true
+      score2: s2
     };
 
     // Update matches
     const updatedMatches = [newMatch, ...matches];
     setMatches(updatedMatches);
-    db.saveMatches(updatedMatches);
+    db.saveMatches(updatedMatches).catch(console.error);
     
     setShowMatchForm(false);
     setActiveTab(Tab.MATCHES);
@@ -104,36 +110,8 @@ const App: React.FC = () => {
     });
 
     setPlayers(updatedPlayers);
-    db.savePlayers(updatedPlayers);
+    db.savePlayers(updatedPlayers).catch(console.error);
 
-    // Generate AI Commentary
-    const p1 = players.find(p => p.id === p1Id);
-    const p2 = players.find(p => p.id === p2Id);
-    
-    if (p1 && p2) {
-        const winner = s1 > s2 ? p1.name : p2.name;
-        const loser = s1 > s2 ? p2.name : p1.name;
-        const isDraw = s1 === s2;
-        
-        // Non-blocking AI call
-        generateMatchCommentary(
-            isDraw ? p1.name : winner, 
-            isDraw ? p2.name : loser, 
-            Math.max(s1, s2), 
-            Math.min(s1, s2), 
-            isDraw
-        ).then(commentary => {
-            setMatches(currentMatches => {
-               const withCommentary = currentMatches.map(m => 
-                    m.id === matchId 
-                    ? { ...m, commentary, isAiLoading: false } 
-                    : m
-                );
-                db.saveMatches(withCommentary);
-                return withCommentary;
-            });
-        });
-    }
   };
 
   return (
