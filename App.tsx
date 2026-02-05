@@ -5,23 +5,45 @@ import { MatchList } from './components/MatchList';
 import { PlayerManager } from './components/PlayerManager';
 import { MatchForm } from './components/MatchForm';
 import { Dashboard } from './components/Dashboard';
-import { generateMatchCommentary } from './services/geminiService';
+import { Login } from './components/Login';
+import { LoginDetails } from './components/LoginDetails';
 import { db } from './services/storage';
-import { Trophy, Users, History, PlusCircle, Gamepad2, LayoutDashboard } from 'lucide-react';
+import { auth, Admin } from './services/auth';
+import { Trophy, Users, History, PlusCircle, Gamepad2, LayoutDashboard, Lock } from 'lucide-react';
 
 const App: React.FC = () => {
   const [players, setPlayers] = useState<Player[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>(Tab.STANDINGS);
   const [showMatchForm, setShowMatchForm] = useState(false);
+  const [currentAdmin, setCurrentAdmin] = useState<Admin | null>(null);
 
-  // Initialize data
+  // Initialize data and auth state
   useEffect(() => {
-    setPlayers(db.getPlayers());
-    setMatches(db.getMatches());
+    const loadData = async () => {
+      const [loadedPlayers, loadedMatches] = await Promise.all([
+        db.getPlayers(),
+        db.getMatches()
+      ]);
+      setPlayers(loadedPlayers);
+      setMatches(loadedMatches);
+    };
+
+    loadData();
+    
+    // Check if user is already authenticated
+    if (auth.isAuthenticated()) {
+      setCurrentAdmin(auth.getCurrentAdmin());
+    }
   }, []);
 
   const handleAddPlayer = (name: string) => {
+    if (!currentAdmin) {
+      alert('Admin access required to add players. Please login first.');
+      setActiveTab(Tab.LOGIN);
+      return;
+    }
+    
     const newPlayer: Player = {
       id: crypto.randomUUID(),
       name,
@@ -40,16 +62,28 @@ const App: React.FC = () => {
     };
     const updated = [...players, newPlayer];
     setPlayers(updated);
-    db.savePlayers(updated);
+    db.savePlayers(updated).catch(console.error);
   };
 
   const handleDeletePlayer = (id: string) => {
+    if (!currentAdmin) {
+      alert('Admin access required to delete players. Please login first.');
+      setActiveTab(Tab.LOGIN);
+      return;
+    }
+    
     const updated = players.filter(p => p.id !== id);
     setPlayers(updated);
-    db.savePlayers(updated);
+    db.savePlayers(updated).catch(console.error);
   };
 
   const handleAddMatch = async (p1Id: string, p2Id: string, s1: number, s2: number) => {
+    if (!currentAdmin) {
+      alert('Admin access required to add matches. Please login first.');
+      setShowMatchForm(false);
+      setActiveTab(Tab.LOGIN);
+      return;
+    }
     const matchId = crypto.randomUUID();
     const newMatch: Match = {
       id: matchId,
@@ -57,14 +91,13 @@ const App: React.FC = () => {
       player1Id: p1Id,
       player2Id: p2Id,
       score1: s1,
-      score2: s2,
-      isAiLoading: true
+      score2: s2
     };
 
     // Update matches
     const updatedMatches = [newMatch, ...matches];
     setMatches(updatedMatches);
-    db.saveMatches(updatedMatches);
+    db.saveMatches(updatedMatches).catch(console.error);
     
     setShowMatchForm(false);
     setActiveTab(Tab.MATCHES);
@@ -104,36 +137,8 @@ const App: React.FC = () => {
     });
 
     setPlayers(updatedPlayers);
-    db.savePlayers(updatedPlayers);
+    db.savePlayers(updatedPlayers).catch(console.error);
 
-    // Generate AI Commentary
-    const p1 = players.find(p => p.id === p1Id);
-    const p2 = players.find(p => p.id === p2Id);
-    
-    if (p1 && p2) {
-        const winner = s1 > s2 ? p1.name : p2.name;
-        const loser = s1 > s2 ? p2.name : p1.name;
-        const isDraw = s1 === s2;
-        
-        // Non-blocking AI call
-        generateMatchCommentary(
-            isDraw ? p1.name : winner, 
-            isDraw ? p2.name : loser, 
-            Math.max(s1, s2), 
-            Math.min(s1, s2), 
-            isDraw
-        ).then(commentary => {
-            setMatches(currentMatches => {
-               const withCommentary = currentMatches.map(m => 
-                    m.id === matchId 
-                    ? { ...m, commentary, isAiLoading: false } 
-                    : m
-                );
-                db.saveMatches(withCommentary);
-                return withCommentary;
-            });
-        });
-    }
   };
 
   return (
@@ -154,8 +159,15 @@ const App: React.FC = () => {
             </div>
             
             <button 
-                onClick={() => setShowMatchForm(true)}
-                disabled={players.length < 2}
+                onClick={() => {
+                  if (!currentAdmin) {
+                    alert('Admin access required to add matches. Please login first.');
+                    setActiveTab(Tab.LOGIN);
+                    return;
+                  }
+                  setShowMatchForm(true);
+                }}
+                disabled={players.length < 2 || !currentAdmin}
                 className="bg-fifa-green hover:bg-emerald-400 disabled:bg-gray-800 disabled:text-gray-500 text-black font-bold py-2 px-4 rounded-full flex items-center gap-2 transition-all shadow-lg shadow-green-900/20 active:scale-95"
             >
                 <PlusCircle className="w-5 h-5" />
@@ -167,12 +179,13 @@ const App: React.FC = () => {
       <main className="max-w-4xl mx-auto px-4 py-8">
         
         {/* Navigation */}
-        <div className="grid grid-cols-4 gap-2 p-1 bg-fifa-card rounded-xl border border-fifa-surface mb-8 sticky top-20 z-30 shadow-2xl">
+        <div className="grid grid-cols-5 gap-2 p-1 bg-fifa-card rounded-xl border border-fifa-surface mb-8 sticky top-20 z-30 shadow-2xl">
             {[
                 { id: Tab.STANDINGS, label: 'Table', icon: Trophy },
                 { id: Tab.MATCHES, label: 'Matches', icon: History },
                 { id: Tab.DASHBOARD, label: 'Stats', icon: LayoutDashboard },
                 { id: Tab.PLAYERS, label: 'Clubs', icon: Users },
+                { id: Tab.LOGIN, label: 'Login', icon: Lock },
             ].map(tab => (
                 <button
                     key={tab.id}
@@ -208,6 +221,17 @@ const App: React.FC = () => {
                     onAddPlayer={handleAddPlayer} 
                     onDeletePlayer={handleDeletePlayer}
                 />
+            )}
+
+            {activeTab === Tab.LOGIN && (
+                <div className="space-y-6">
+                    <Login 
+                        currentAdmin={currentAdmin}
+                        onLogin={(admin) => setCurrentAdmin(admin)}
+                        onLogout={() => setCurrentAdmin(null)}
+                    />
+                    {currentAdmin && <LoginDetails />}
+                </div>
             )}
         </div>
       </main>

@@ -22,14 +22,14 @@ export interface Match {
   score1: number;
   score2: number;
   commentary?: string;
-  isAiLoading?: boolean;
 }
 
 export enum Tab {
   DASHBOARD = 'DASHBOARD',
   STANDINGS = 'STANDINGS',
   MATCHES = 'MATCHES',
-  PLAYERS = 'PLAYERS'
+  PLAYERS = 'PLAYERS',
+  LOGIN = 'LOGIN'
 }
 
 export type LeagueMode = 'ABSOLUTE' | 'NORMALIZED';
