@@ -1,7 +1,7 @@
 import React from 'react';
 import { Player, Match } from '../types';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { TrendingUp, Activity, Award } from 'lucide-react';
+import { TrendingUp, Activity, Award, Target, BarChart3 } from 'lucide-react';
 
 interface DashboardProps {
   players: Player[];
@@ -9,107 +9,164 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ players, matches }) => {
-  // Color palette for lines
-  const colors = ['#32e0c4', '#3b82f6', '#ec4899', '#f59e0b', '#8b5cf6', '#ef4444'];
+  const colors = ['#00E676', '#448AFF', '#FF6E40', '#FFD740', '#7C4DFF', '#FF5252'];
 
-  // Prepare Data for "Points Over Time"
-  // We need an array of { matchIndex: 1, [player1]: pts, [player2]: pts }
-  
   const sortedMatches = [...matches].sort((a, b) => a.timestamp - b.timestamp);
-  
+
   const pointsHistory: any[] = [];
   const currentPoints: Record<string, number> = {};
-  
-  // Initialize 0 points
   players.forEach(p => currentPoints[p.name] = 0);
   pointsHistory.push({ match: 'Start', ...currentPoints });
 
   sortedMatches.forEach((m, idx) => {
     const p1 = players.find(p => p.id === m.player1Id);
     const p2 = players.find(p => p.id === m.player2Id);
-    
     if (p1 && p2) {
-        const p1Pts = m.score1 > m.score2 ? 3 : m.score1 === m.score2 ? 1 : 0;
-        const p2Pts = m.score2 > m.score1 ? 3 : m.score2 === m.score1 ? 1 : 0;
-        
-        currentPoints[p1.name] = (currentPoints[p1.name] || 0) + p1Pts;
-        currentPoints[p2.name] = (currentPoints[p2.name] || 0) + p2Pts;
-        
-        // Snapshot every match
-        pointsHistory.push({
-            match: idx + 1,
-            ...currentPoints
-        });
+      const p1Pts = m.score1 > m.score2 ? 3 : m.score1 === m.score2 ? 1 : 0;
+      const p2Pts = m.score2 > m.score1 ? 3 : m.score2 === m.score1 ? 1 : 0;
+      currentPoints[p1.name] = (currentPoints[p1.name] || 0) + p1Pts;
+      currentPoints[p2.name] = (currentPoints[p2.name] || 0) + p2Pts;
+      pointsHistory.push({ match: idx + 1, ...currentPoints });
     }
   });
 
-  // Calculate Total Goals
   const totalGoals = matches.reduce((acc, m) => acc + m.score1 + m.score2, 0);
   const avgGoals = matches.length ? (totalGoals / matches.length).toFixed(1) : '0';
   const totalGames = matches.length;
-  
-  // Top Scorer (GF)
-  const topScorer = [...players].sort((a,b) => b.gf - a.gf)[0];
+  const topScorer = [...players].sort((a, b) => b.gf - a.gf)[0];
+  const bestDefender = [...players].sort((a, b) => {
+    const gaPerGameA = a.played > 0 ? a.ga / a.played : Infinity;
+    const gaPerGameB = b.played > 0 ? b.ga / b.played : Infinity;
+    return gaPerGameA - gaPerGameB;
+  })[0];
+
+  const stats = [
+    {
+      label: 'Total Matches',
+      value: totalGames,
+      icon: Activity,
+      color: 'text-accent-green',
+      bgColor: 'bg-accent-green/10',
+      borderColor: 'border-accent-green/15',
+    },
+    {
+      label: 'Avg Goals / Match',
+      value: avgGoals,
+      icon: TrendingUp,
+      color: 'text-accent-gold',
+      bgColor: 'bg-accent-gold/10',
+      borderColor: 'border-accent-gold/15',
+    },
+    {
+      label: 'Golden Boot',
+      value: topScorer?.name || '—',
+      subtitle: topScorer ? `${topScorer.gf} Goals` : undefined,
+      icon: Award,
+      color: 'text-accent-orange',
+      bgColor: 'bg-accent-orange/10',
+      borderColor: 'border-accent-orange/15',
+    },
+    {
+      label: 'Best Defense',
+      value: bestDefender?.name || '—',
+      subtitle: bestDefender && bestDefender.played > 0 ? `${(bestDefender.ga / bestDefender.played).toFixed(1)} GA/G` : undefined,
+      icon: Target,
+      color: 'text-accent-blue',
+      bgColor: 'bg-accent-blue/10',
+      borderColor: 'border-accent-blue/15',
+    },
+  ];
 
   return (
     <div className="space-y-6">
-        
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-        <div className="bg-fifa-card p-3 sm:p-4 rounded-xl border border-fifa-surface card-shadow">
-            <div className="flex items-center gap-2 text-white text-[10px] sm:text-xs uppercase font-black mb-1">
-                <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-fifa-green" /> <span className="hidden sm:inline">Total Matches</span><span className="sm:hidden">Matches</span>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {stats.map((stat, i) => (
+          <div key={i} className="stat-card group">
+            <div className="flex items-center gap-2 mb-3">
+              <div className={`w-7 h-7 rounded-lg ${stat.bgColor} border ${stat.borderColor} flex items-center justify-center`}>
+                <stat.icon className={`w-3.5 h-3.5 ${stat.color}`} />
+              </div>
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-fifa-accent">{totalGames}</div>
-        </div>
-        <div className="bg-fifa-card p-3 sm:p-4 rounded-xl border border-fifa-surface card-shadow">
-            <div className="flex items-center gap-2 text-white text-[10px] sm:text-xs uppercase font-black mb-1">
-                <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-fifa-accent" /> <span className="hidden sm:inline">Avg Goals/Match</span><span className="sm:hidden">Avg Goals</span>
+            <div className={`text-xl sm:text-2xl font-extrabold ${stat.color} font-mono tracking-tight truncate`}>
+              {stat.value}
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-fifa-accent">{avgGoals}</div>
-        </div>
-        <div className="bg-fifa-card p-3 sm:p-4 rounded-xl border border-fifa-surface card-shadow">
-            <div className="flex items-center gap-2 text-white text-[10px] sm:text-xs uppercase font-black mb-1">
-                <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-fifa-accent" /> Golden Boot
+            {stat.subtitle && (
+              <div className="text-[10px] font-medium text-text-muted mt-0.5">{stat.subtitle}</div>
+            )}
+            <div className="text-[10px] sm:text-[11px] font-medium text-text-muted mt-1 uppercase tracking-wider">
+              {stat.label}
             </div>
-            <div className="truncate font-black text-fifa-accent text-sm sm:text-base">{topScorer?.name || '-'}</div>
-            <div className="text-[10px] sm:text-xs text-white font-black">{topScorer?.gf || 0} Goals</div>
-        </div>
+          </div>
+        ))}
       </div>
 
       {/* Chart */}
-      <div className="bg-fifa-card p-4 sm:p-6 rounded-2xl border border-fifa-surface card-shadow">
-        <h3 className="text-base sm:text-lg font-black text-white mb-4 sm:mb-6">Season Trajectory (Points)</h3>
-        <div className="h-[250px] sm:h-[300px] w-full">
-            {matches.length < 2 ? (
-                <div className="h-full flex items-center justify-center text-gray-500">
-                    Not enough data to display trends. Play more matches!
-                </div>
-            ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={pointsHistory}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                        <XAxis dataKey="match" stroke="#94a3b8" tick={{fontSize: 12}} />
-                        <YAxis stroke="#94a3b8" tick={{fontSize: 12}} />
-                        <Tooltip 
-                            contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }}
-                            itemStyle={{ color: '#fff' }}
-                        />
-                        <Legend />
-                        {players.map((p, i) => (
-                            <Line 
-                                key={p.id} 
-                                type="monotone" 
-                                dataKey={p.name} 
-                                stroke={colors[i % colors.length]} 
-                                strokeWidth={3}
-                                dot={false}
-                                activeDot={{ r: 6 }}
-                            />
-                        ))}
-                    </LineChart>
-                </ResponsiveContainer>
-            )}
+      <div className="glass-card p-4 sm:p-6">
+        <div className="flex items-center gap-2 mb-5">
+          <BarChart3 className="w-4 h-4 text-text-muted" />
+          <h3 className="text-sm font-semibold text-text-primary">Season Trajectory</h3>
+          <span className="text-[10px] font-mono text-text-muted ml-auto">Points over time</span>
+        </div>
+        <div className="h-[260px] sm:h-[320px] w-full">
+          {matches.length < 2 ? (
+            <div className="h-full flex flex-col items-center justify-center text-text-muted">
+              <BarChart3 className="w-8 h-8 mb-2 opacity-30" />
+              <p className="text-sm font-medium">Not enough data yet</p>
+              <p className="text-xs mt-1">Play more matches to see trends.</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={pointsHistory}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                <XAxis
+                  dataKey="match"
+                  stroke="rgba(255,255,255,0.1)"
+                  tick={{ fontSize: 11, fill: '#55556A', fontFamily: 'JetBrains Mono' }}
+                  axisLine={{ stroke: 'rgba(255,255,255,0.04)' }}
+                />
+                <YAxis
+                  stroke="rgba(255,255,255,0.1)"
+                  tick={{ fontSize: 11, fill: '#55556A', fontFamily: 'JetBrains Mono' }}
+                  axisLine={{ stroke: 'rgba(255,255,255,0.04)' }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'rgba(15, 15, 36, 0.95)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '12px',
+                    backdropFilter: 'blur(20px)',
+                    boxShadow: '0 20px 40px -12px rgba(0,0,0,0.5)',
+                    fontSize: '12px',
+                    fontFamily: 'JetBrains Mono',
+                  }}
+                  itemStyle={{ color: '#EAEAF0', fontSize: '11px' }}
+                  labelStyle={{ color: '#55556A', fontSize: '10px', fontWeight: 600 }}
+                />
+                <Legend
+                  wrapperStyle={{ fontSize: '11px', fontFamily: 'Inter' }}
+                  iconType="circle"
+                  iconSize={8}
+                />
+                {players.map((p, i) => (
+                  <Line
+                    key={p.id}
+                    type="monotone"
+                    dataKey={p.name}
+                    stroke={colors[i % colors.length]}
+                    strokeWidth={2.5}
+                    dot={false}
+                    activeDot={{
+                      r: 5,
+                      stroke: colors[i % colors.length],
+                      strokeWidth: 2,
+                      fill: '#050510',
+                    }}
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Player, LeagueMode } from '../types';
-import { Trophy, ArrowDown, ArrowUp, Minus, Calculator } from 'lucide-react';
+import { Trophy, Calculator, Crown, Medal, Award } from 'lucide-react';
 
 interface StandingsProps {
   players: Player[];
@@ -15,142 +15,167 @@ export const Standings: React.FC<StandingsProps> = ({ players }) => {
       if (b.gd !== a.gd) return b.gd - a.gd;
       return b.gf - a.gf;
     } else {
-      // Normalized: Points Per Game -> Win Rate -> GD
       const ppgA = a.played > 0 ? a.points / a.played : 0;
       const ppgB = b.played > 0 ? b.points / b.played : 0;
       if (ppgB !== ppgA) return ppgB - ppgA;
-      
       const winRateA = a.played > 0 ? a.wins / a.played : 0;
       const winRateB = b.played > 0 ? b.wins / b.played : 0;
       if (winRateB !== winRateA) return winRateB - winRateA;
-      
       return b.gd - a.gd;
     }
   });
 
   if (players.length === 0) {
     return (
-      <div className="text-center py-20 bg-fifa-card rounded-2xl border border-fifa-surface">
-        <Trophy className="w-16 h-16 text-fifa-surface mx-auto mb-4" />
-        <p className="text-fifa-muted text-lg">League not started.</p>
-        <p className="text-sm text-fifa-muted">Add players to begin the season.</p>
+      <div className="glass-card text-center py-20 px-6">
+        <div className="w-16 h-16 rounded-2xl bg-glass-light border border-glass-border mx-auto mb-5 flex items-center justify-center">
+          <Trophy className="w-8 h-8 text-text-muted" />
+        </div>
+        <p className="text-text-secondary text-lg font-semibold">League not started</p>
+        <p className="text-sm text-text-muted mt-1">Add players to begin the season.</p>
       </div>
     );
   }
 
+  const RankBadge = ({ index }: { index: number }) => {
+    if (index === 0) return (
+      <div className="w-7 h-7 rounded-lg rank-1 flex items-center justify-center">
+        <Crown className="w-3.5 h-3.5" />
+      </div>
+    );
+    if (index === 1) return (
+      <div className="w-7 h-7 rounded-lg rank-2 flex items-center justify-center">
+        <Medal className="w-3.5 h-3.5" />
+      </div>
+    );
+    if (index === 2) return (
+      <div className="w-7 h-7 rounded-lg rank-3 flex items-center justify-center">
+        <Award className="w-3.5 h-3.5" />
+      </div>
+    );
+    return (
+      <div className="w-7 h-7 rounded-lg bg-glass-light flex items-center justify-center">
+        <span className="text-xs font-bold text-text-muted font-mono">{index + 1}</span>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4">
-      {/* Table Controls */}
+      {/* Mode Toggle */}
       <div className="flex justify-end">
-        <div className="bg-fifa-card p-1 rounded-lg border border-fifa-surface inline-flex flex-wrap gap-1">
+        <div className="glass-card p-1 inline-flex gap-1">
           <button
             onClick={() => setMode('ABSOLUTE')}
-            className={`px-2 sm:px-4 py-1.5 rounded-md text-xs sm:text-sm font-black transition-all ${
-              mode === 'ABSOLUTE' 
-                ? 'bg-fifa-green text-white shadow-lg' 
-                : 'text-white hover:text-fifa-accent'
+            className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              mode === 'ABSOLUTE'
+                ? 'bg-accent-green/15 text-accent-green border border-accent-green/20'
+                : 'text-text-muted hover:text-text-secondary'
             }`}
           >
             Standard
           </button>
           <button
             onClick={() => setMode('NORMALIZED')}
-            className={`px-2 sm:px-4 py-1.5 rounded-md text-xs sm:text-sm font-black transition-all flex items-center gap-1 sm:gap-2 ${
-              mode === 'NORMALIZED' 
-                ? 'bg-fifa-accent text-black shadow-lg' 
-                : 'text-white hover:text-fifa-accent'
+            className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+              mode === 'NORMALIZED'
+                ? 'bg-accent-gold/15 text-accent-gold border border-accent-gold/20'
+                : 'text-text-muted hover:text-text-secondary'
             }`}
           >
             <Calculator className="w-3 h-3" />
-            <span className="hidden sm:inline">Normalized (PPG)</span>
+            <span className="hidden sm:inline">Normalized</span>
             <span className="sm:hidden">PPG</span>
           </button>
         </div>
       </div>
 
-      <div className="overflow-hidden bg-fifa-card rounded-2xl border border-fifa-surface card-shadow">
+      {/* Table */}
+      <div className="glass-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left data-table">
             <thead>
-              <tr className="bg-fifa-dark/50 text-xs uppercase tracking-wider text-white border-b border-fifa-surface">
-                <th className="p-2 sm:p-4 font-black text-center w-8 sm:w-12">#</th>
-                <th className="p-2 sm:p-4 font-black min-w-[120px]">Club</th>
-                <th className="p-2 sm:p-4 font-black text-center">MP</th>
-                {mode === 'NORMALIZED' && <th className="p-2 sm:p-4 font-black text-center text-fifa-accent">PPG</th>}
-                <th className="p-2 sm:p-4 font-black text-center hidden sm:table-cell">W</th>
-                <th className="p-2 sm:p-4 font-black text-center hidden sm:table-cell">D</th>
-                <th className="p-2 sm:p-4 font-black text-center hidden sm:table-cell">L</th>
-                <th className="p-2 sm:p-4 font-black text-center hidden md:table-cell">GD</th>
-                {mode === 'ABSOLUTE' && <th className="p-2 sm:p-4 font-black text-center text-fifa-accent">PTS</th>}
-                <th className="p-2 sm:p-4 font-black text-center">Form</th>
+              <tr>
+                <th className="w-12 text-center">#</th>
+                <th className="min-w-[140px]">Player</th>
+                <th className="text-center">MP</th>
+                {mode === 'NORMALIZED' && <th className="text-center text-accent-gold">PPG</th>}
+                <th className="text-center hidden sm:table-cell">W</th>
+                <th className="text-center hidden sm:table-cell">D</th>
+                <th className="text-center hidden sm:table-cell">L</th>
+                <th className="text-center hidden md:table-cell">GD</th>
+                {mode === 'ABSOLUTE' && <th className="text-center text-accent-green">PTS</th>}
+                <th className="text-center">Form</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-fifa-surface/50">
+            <tbody>
               {sortedPlayers.map((player, index) => {
-                 const ppg = player.played > 0 ? (player.points / player.played).toFixed(2) : "0.00";
-                 
-                 return (
-                  <tr 
-                    key={player.id} 
-                    className={`hover:bg-white/5 transition-colors group`}
-                  >
-                    <td className="p-2 sm:p-4 text-center font-mono text-white font-black relative">
-                      {index === 0 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-fifa-accent"></div>}
-                      {index === 1 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gray-400"></div>}
-                      {index === 2 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-orange-700"></div>}
-                      {index + 1}
+                const ppg = player.played > 0 ? (player.points / player.played).toFixed(2) : "0.00";
+                return (
+                  <tr key={player.id} className="group">
+                    <td className="text-center">
+                      <RankBadge index={index} />
                     </td>
-                    <td className="p-2 sm:p-4">
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <img 
-                            src={player.avatarUrl} 
-                            alt={player.name} 
-                            className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-fifa-surface border border-fifa-surface object-cover"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}&backgroundColor=fae100,6b46c1,1a1625`;
-                            }}
+                    <td>
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={player.avatarUrl}
+                          alt={player.name}
+                          className="avatar w-8 h-8 sm:w-9 sm:h-9"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}`;
+                          }}
                         />
                         <div className="min-w-0">
-                            <div className="font-black text-white text-sm sm:text-lg leading-tight group-hover:text-fifa-accent transition-colors truncate">
-                                {player.name}
-                            </div>
-                            {index === 0 && <div className="text-[8px] sm:text-[10px] font-black text-fifa-accent uppercase tracking-widest">Leader</div>}
+                          <div className="font-semibold text-text-primary text-sm group-hover:text-accent-green transition-colors truncate">
+                            {player.name}
+                          </div>
+                          {index === 0 && (
+                            <div className="text-[9px] font-bold text-accent-gold uppercase tracking-widest mt-0.5">Leader</div>
+                          )}
                         </div>
                       </div>
                     </td>
-                    <td className="p-2 sm:p-4 text-center font-black text-white text-sm sm:text-base">{player.played}</td>
-                    
+                    <td className="text-center font-mono font-medium text-text-secondary text-sm">{player.played}</td>
+
                     {mode === 'NORMALIZED' && (
-                        <td className="p-2 sm:p-4 text-center font-black text-lg sm:text-xl text-fifa-accent font-mono">{ppg}</td>
+                      <td className="text-center font-mono font-bold text-lg text-accent-gold">{ppg}</td>
                     )}
 
-                    <td className="p-2 sm:p-4 text-center font-black text-white hidden sm:table-cell text-sm sm:text-base">{player.wins}</td>
-                    <td className="p-2 sm:p-4 text-center font-black text-white hidden sm:table-cell text-sm sm:text-base">{player.draws}</td>
-                    <td className="p-2 sm:p-4 text-center font-black text-white hidden sm:table-cell text-sm sm:text-base">{player.losses}</td>
-                    
-                    <td className={`p-2 sm:p-4 text-center font-black hidden md:table-cell text-sm sm:text-base ${player.gd > 0 ? 'text-green-400' : player.gd < 0 ? 'text-red-400' : 'text-white'}`}>
+                    <td className="text-center font-mono font-medium text-text-secondary text-sm hidden sm:table-cell">{player.wins}</td>
+                    <td className="text-center font-mono font-medium text-text-secondary text-sm hidden sm:table-cell">{player.draws}</td>
+                    <td className="text-center font-mono font-medium text-text-secondary text-sm hidden sm:table-cell">{player.losses}</td>
+
+                    <td className={`text-center font-mono font-semibold text-sm hidden md:table-cell ${
+                      player.gd > 0 ? 'text-accent-green' : player.gd < 0 ? 'text-accent-red' : 'text-text-muted'
+                    }`}>
                       {player.gd > 0 ? '+' : ''}{player.gd}
                     </td>
-                    
+
                     {mode === 'ABSOLUTE' && (
-                        <td className="p-2 sm:p-4 text-center font-black text-lg sm:text-xl text-fifa-accent">{player.points}</td>
+                      <td className="text-center font-mono font-bold text-lg text-accent-green">{player.points}</td>
                     )}
-                    
-                    <td className="p-2 sm:p-4">
+
+                    <td>
                       <div className="flex items-center justify-center gap-1">
                         {player.form.slice(-5).map((result, i) => (
-                          <div 
-                            key={i} 
-                            className={`w-6 h-6 sm:w-7 sm:h-7 rounded flex items-center justify-center font-black text-xs sm:text-sm
-                              ${result === 'W' ? 'bg-green-500 text-white' : 
-                                result === 'D' ? 'bg-gray-500 text-white' : 
-                                'bg-red-500 text-white'}`}
-                            title={result}
+                          <div
+                            key={i}
+                            className={`result-badge ${
+                              result === 'W'
+                                ? 'bg-accent-green/15 text-accent-green border border-accent-green/20'
+                                : result === 'D'
+                                  ? 'bg-glass-strong text-text-secondary border border-glass-border'
+                                  : 'bg-accent-red/15 text-accent-red border border-accent-red/20'
+                            }`}
                           >
                             {result}
                           </div>
                         ))}
+                        {player.form.length === 0 && (
+                          <span className="text-[10px] text-text-muted">—</span>
+                        )}
                       </div>
                     </td>
                   </tr>

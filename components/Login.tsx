@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { auth, Admin } from '../services/auth';
-import { Lock, LogIn, LogOut, User, AlertCircle } from 'lucide-react';
+import { Lock, LogIn, LogOut, User, AlertCircle, ShieldCheck, KeyRound } from 'lucide-react';
 
 interface LoginProps {
   currentAdmin: Admin | null;
@@ -17,10 +17,8 @@ export const Login: React.FC<LoginProps> = ({ currentAdmin, onLogin, onLogout })
     e.preventDefault();
     setError(null);
     setLoading(true);
-
     const result = await auth.login(password);
     setLoading(false);
-
     if (result.success && result.admin) {
       onLogin(result.admin);
       setPassword('');
@@ -36,34 +34,50 @@ export const Login: React.FC<LoginProps> = ({ currentAdmin, onLogin, onLogout })
 
   if (currentAdmin) {
     return (
-      <div className="space-y-4 sm:space-y-6">
-        <div className="bg-fifa-card p-4 sm:p-6 rounded-2xl border border-fifa-surface shadow-xl">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-3 sm:mb-4">
-            <h3 className="text-lg sm:text-xl font-bold flex items-center gap-2 text-white">
-              <User className="w-4 h-4 sm:w-5 sm:h-5 text-fifa-accent" /> Admin Session
-            </h3>
+      <div className="glass-card overflow-hidden">
+        {/* Top accent line */}
+        <div className="h-px bg-gradient-to-r from-transparent via-accent-green/40 to-transparent"></div>
+        
+        <div className="p-5 sm:p-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-5">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-accent-green/10 border border-accent-green/20 flex items-center justify-center">
+                <ShieldCheck className="w-4 h-4 text-accent-green" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-text-primary">Admin Session</h3>
+                <p className="text-[11px] text-text-muted">You have full access</p>
+              </div>
+            </div>
             <button
               onClick={handleLogout}
-              className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 sm:px-4 rounded-lg flex items-center gap-2 transition-colors text-sm sm:text-base w-full sm:w-auto justify-center"
+              className="btn-ghost flex items-center gap-2 text-sm text-accent-red border-accent-red/20 hover:bg-accent-red/10 w-full sm:w-auto justify-center"
             >
               <LogOut className="w-4 h-4" /> Logout
             </button>
           </div>
-          <div className="bg-fifa-dark p-3 sm:p-4 rounded-xl border border-fifa-surface">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-fifa-accent/20 flex items-center justify-center shrink-0">
-                <User className="w-5 h-5 sm:w-6 sm:h-6 text-fifa-accent" />
+
+          {/* Admin Profile */}
+          <div className="p-4 rounded-xl bg-glass-light border border-glass-border">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-accent-green/20 to-accent-purple/20 border border-glass-border flex items-center justify-center">
+                <User className="w-6 h-6 text-accent-green" />
               </div>
-              <div className="min-w-0">
-                <div className="text-xs sm:text-sm text-gray-400 uppercase font-bold tracking-wider">Logged in as</div>
-                <div className="text-lg sm:text-xl font-black text-white truncate">{currentAdmin.name}</div>
+              <div>
+                <div className="text-[10px] font-medium text-text-muted uppercase tracking-wider">Logged in as</div>
+                <div className="text-lg font-bold text-text-primary">{currentAdmin.name}</div>
               </div>
             </div>
           </div>
-          <div className="mt-3 sm:mt-4 p-3 sm:p-4 bg-green-900/20 border border-green-500/30 rounded-xl">
-            <div className="text-xs sm:text-sm text-green-400 font-bold">✓ Admin Access Active</div>
-            <div className="text-[10px] sm:text-xs text-green-300/70 mt-1">
-              You can now add matches, manage players, and modify resources.
+
+          {/* Access Badge */}
+          <div className="mt-4 p-3 rounded-xl bg-accent-green/5 border border-accent-green/10 flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-accent-green shrink-0" />
+            <div>
+              <div className="text-xs font-semibold text-accent-green">Admin Access Active</div>
+              <div className="text-[10px] text-text-muted mt-0.5">
+                You can add matches, manage players, and modify resources.
+              </div>
             </div>
           </div>
         </div>
@@ -72,48 +86,59 @@ export const Login: React.FC<LoginProps> = ({ currentAdmin, onLogin, onLogout })
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="bg-fifa-card p-4 sm:p-6 rounded-2xl border border-fifa-surface shadow-xl">
-        <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4 flex items-center gap-2 text-white">
-          <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-fifa-accent" /> Admin Login
-        </h3>
-        
-        <form onSubmit={handleLogin} className="space-y-3 sm:space-y-4">
-          <div>
-            <label className="block text-xs sm:text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter admin password..."
-              className="w-full bg-fifa-dark border border-fifa-surface rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base text-white placeholder-fifa-muted focus:outline-none focus:border-fifa-accent transition-colors"
-              disabled={loading}
-              autoFocus
-            />
+    <div className="max-w-md mx-auto">
+      <div className="glass-card overflow-hidden">
+        {/* Top accent line */}
+        <div className="h-px bg-gradient-to-r from-transparent via-accent-purple/40 to-transparent"></div>
+
+        <div className="p-5 sm:p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-9 h-9 rounded-xl bg-accent-purple/10 border border-accent-purple/20 flex items-center justify-center">
+              <KeyRound className="w-4 h-4 text-accent-purple" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-text-primary">Admin Login</h3>
+              <p className="text-[11px] text-text-muted">Enter your password to continue</p>
+            </div>
           </div>
 
-          {error && (
-            <div className="bg-red-900/20 border border-red-500/30 p-2.5 sm:p-3 rounded-xl flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-400 shrink-0" />
-              <div className="text-xs sm:text-sm text-red-400">{error}</div>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="text-[10px] font-semibold text-text-muted uppercase tracking-wider block mb-2">
+                Password
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter admin password..."
+                className="input-field"
+                disabled={loading}
+                autoFocus
+              />
             </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={loading || !password.trim()}
-            className="w-full bg-fifa-accent hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-black font-bold py-2.5 sm:py-3 px-4 sm:px-6 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-yellow-900/30 text-sm sm:text-base"
-          >
-            <LogIn className="w-4 h-4 sm:w-5 sm:h-5" />
-            {loading ? 'Logging in...' : 'Login'}
-          </button>
-        </form>
+            {error && (
+              <div className="p-3 rounded-xl bg-accent-red/8 border border-accent-red/15 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-accent-red shrink-0" />
+                <span className="text-xs font-medium text-accent-red">{error}</span>
+              </div>
+            )}
 
-        <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-blue-900/20 border border-blue-500/30 rounded-xl">
-          <div className="text-[10px] sm:text-xs text-blue-300/70 leading-relaxed">
-            <strong className="text-blue-400">Note:</strong> Viewing is not restricted. Only admin actions (adding matches, managing players) require authentication.
+            <button
+              type="submit"
+              disabled={loading || !password.trim()}
+              className="btn-primary w-full py-3 flex items-center justify-center gap-2 text-sm disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:transform-none disabled:hover:shadow-none"
+            >
+              <LogIn className="w-4 h-4" />
+              {loading ? 'Authenticating...' : 'Login'}
+            </button>
+          </form>
+
+          <div className="mt-5 p-3 rounded-xl bg-glass-light border border-glass-border">
+            <p className="text-[11px] text-text-muted leading-relaxed">
+              <span className="font-semibold text-text-secondary">Note:</span> Viewing is not restricted. Only admin actions require authentication.
+            </p>
           </div>
         </div>
       </div>

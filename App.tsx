@@ -9,7 +9,7 @@ import { Login } from './components/Login';
 import { LoginDetails } from './components/LoginDetails';
 import { db } from './services/storage';
 import { auth, Admin } from './services/auth';
-import { Trophy, Users, History, PlusCircle, Gamepad2, LayoutDashboard, Lock } from 'lucide-react';
+import { Trophy, Users, History, PlusCircle, LayoutDashboard, Lock, Zap, ChevronRight } from 'lucide-react';
 
 const App: React.FC = () => {
   const [players, setPlayers] = useState<Player[]>([]);
@@ -18,68 +18,40 @@ const App: React.FC = () => {
   const [showMatchForm, setShowMatchForm] = useState(false);
   const [currentAdmin, setCurrentAdmin] = useState<Admin | null>(null);
 
-  // Player avatar mapping - FC26 themed with real player images
-  // Using reliable image sources with proper player IDs
   const getPlayerAvatar = (name: string): string => {
     const nameLower = name.toLowerCase().trim();
-    
-    // Player image mapping - using multiple reliable sources
     const avatarMap: Record<string, string> = {
-      // Abhinav - Rayane Cherki (Lyon/PSG)
       'abhinav': 'https://img.a.transfermarkt.technology/portrait/header/433179-1672832000.jpg?lm=1',
-      // Karan - Kylian Mbappé (PSG)
       'karan': 'https://img.a.transfermarkt.technology/portrait/header/342229-1672832000.jpg?lm=1',
-      // Manan - Robert Lewandowski (Barcelona)
       'manan': 'https://img.a.transfermarkt.technology/portrait/header/38253-1672832000.jpg?lm=1',
-      // Sagar - Erling Haaland (Manchester City)
       'sagar': 'https://img.a.transfermarkt.technology/portrait/header/418560-1672832000.jpg?lm=1',
-      // Ayush - Lamine Yamal (Barcelona)
       'ayush': 'https://img.a.transfermarkt.technology/portrait/header/636999-1672832000.jpg?lm=1'
     };
-    
-    // Try exact match first
-    if (avatarMap[nameLower]) {
-      return avatarMap[nameLower];
-    }
-    
-    // Try partial match (handles variations like "Abhinav Das" matching "abhinav")
+    if (avatarMap[nameLower]) return avatarMap[nameLower];
     for (const [key, value] of Object.entries(avatarMap)) {
-      if (nameLower.includes(key) || key.includes(nameLower)) {
-        return value;
-      }
+      if (nameLower.includes(key) || key.includes(nameLower)) return value;
     }
-    
-    // Fallback to themed dicebear with purple/yellow theme
     return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}&backgroundColor=fae100,6b46c1,1a1625`;
   };
 
-  // Initialize data and auth state
   useEffect(() => {
     const loadData = async () => {
       const [loadedPlayers, loadedMatches] = await Promise.all([
         db.getPlayers(),
         db.getMatches()
       ]);
-      
-      // Update player avatars to use new FC26 player images
       const updatedPlayers = loadedPlayers.map(player => ({
         ...player,
         avatarUrl: getPlayerAvatar(player.name)
       }));
-      
-      // Only save if avatars changed
       const avatarsChanged = updatedPlayers.some((p, i) => p.avatarUrl !== loadedPlayers[i]?.avatarUrl);
       if (avatarsChanged && updatedPlayers.length > 0) {
         db.savePlayers(updatedPlayers).catch(console.error);
       }
-      
       setPlayers(updatedPlayers);
       setMatches(loadedMatches);
     };
-
     loadData();
-    
-    // Check if user is already authenticated
     if (auth.isAuthenticated()) {
       setCurrentAdmin(auth.getCurrentAdmin());
     }
@@ -87,25 +59,16 @@ const App: React.FC = () => {
 
   const handleAddPlayer = (name: string) => {
     if (!currentAdmin) {
-      alert('Admin access required to add players. Please login first.');
+      alert('Admin access required. Please login first.');
       setActiveTab(Tab.LOGIN);
       return;
     }
-    
     const newPlayer: Player = {
       id: crypto.randomUUID(),
       name,
       avatarUrl: getPlayerAvatar(name),
-      played: 0,
-      wins: 0,
-      draws: 0,
-      losses: 0,
-      gf: 0,
-      ga: 0,
-      gd: 0,
-      points: 0,
-      ppg: 0,
-      form: []
+      played: 0, wins: 0, draws: 0, losses: 0,
+      gf: 0, ga: 0, gd: 0, points: 0, ppg: 0, form: []
     };
     const updated = [...players, newPlayer];
     setPlayers(updated);
@@ -114,11 +77,10 @@ const App: React.FC = () => {
 
   const handleDeletePlayer = (id: string) => {
     if (!currentAdmin) {
-      alert('Admin access required to delete players. Please login first.');
+      alert('Admin access required. Please login first.');
       setActiveTab(Tab.LOGIN);
       return;
     }
-    
     const updated = players.filter(p => p.id !== id);
     setPlayers(updated);
     db.savePlayers(updated).catch(console.error);
@@ -126,215 +88,218 @@ const App: React.FC = () => {
 
   const handleAddMatch = async (p1Id: string, p2Id: string, s1: number, s2: number) => {
     if (!currentAdmin) {
-      alert('Admin access required to add matches. Please login first.');
+      alert('Admin access required. Please login first.');
       setShowMatchForm(false);
       setActiveTab(Tab.LOGIN);
       return;
     }
-    const matchId = crypto.randomUUID();
     const newMatch: Match = {
-      id: matchId,
+      id: crypto.randomUUID(),
       timestamp: Date.now(),
       player1Id: p1Id,
       player2Id: p2Id,
       score1: s1,
       score2: s2
     };
-
-    // Update matches
     const updatedMatches = [newMatch, ...matches];
     setMatches(updatedMatches);
     db.saveMatches(updatedMatches).catch(console.error);
-    
     setShowMatchForm(false);
     setActiveTab(Tab.MATCHES);
 
-    // Update players stats
     const updatedPlayers = players.map(p => {
       if (p.id !== p1Id && p.id !== p2Id) return p;
-
       const isP1 = p.id === p1Id;
       const myScore = isP1 ? s1 : s2;
       const oppScore = isP1 ? s2 : s1;
-      
       let result: 'W' | 'D' | 'L' = 'D';
       if (myScore > oppScore) result = 'W';
       if (myScore < oppScore) result = 'L';
-
       const newPlayed = p.played + 1;
       const newWins = p.wins + (result === 'W' ? 1 : 0);
       const newDraws = p.draws + (result === 'D' ? 1 : 0);
       const newLosses = p.losses + (result === 'L' ? 1 : 0);
       const newPoints = p.points + (result === 'W' ? 3 : result === 'D' ? 1 : 0);
-
-      const newStats: Player = {
+      return {
         ...p,
-        played: newPlayed,
-        wins: newWins,
-        draws: newDraws,
-        losses: newLosses,
-        gf: p.gf + myScore,
-        ga: p.ga + oppScore,
-        gd: p.gd + (myScore - oppScore),
-        points: newPoints,
+        played: newPlayed, wins: newWins, draws: newDraws, losses: newLosses,
+        gf: p.gf + myScore, ga: p.ga + oppScore,
+        gd: p.gd + (myScore - oppScore), points: newPoints,
         ppg: newPoints / newPlayed,
         form: [...p.form, result]
       };
-      return newStats;
     });
-
     setPlayers(updatedPlayers);
     db.savePlayers(updatedPlayers).catch(console.error);
-
   };
 
-  return (
-    <div className="min-h-screen bg-fifa-dark pb-32">
-      {/* Top Navbar */}
-      <div className="bg-fifa-dark/95 border-b border-fifa-surface sticky top-0 z-40 backdrop-blur-md">
-        <div className="max-w-4xl mx-auto px-3 sm:px-4 h-16 sm:h-20 flex items-center justify-between">
-            <div className="flex items-center gap-2 sm:gap-3">
-                {/* FC26 Logo */}
-                <div className="relative">
-                    <div className="absolute inset-0 bg-fifa-accent blur opacity-30 rounded-lg"></div>
-                    <div className="relative bg-fifa-card p-1 sm:p-1.5 rounded-lg border border-fifa-surface card-shadow">
-                        <img 
-                            src="https://upload.wikimedia.org/wikipedia/en/thumb/0/05/FC_Barcelona_%28crest%29.svg/120px-FC_Barcelona_%28crest%29.svg.png" 
-                            alt="FC26" 
-                            className="w-6 h-6 sm:w-8 sm:h-8 object-contain"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                              target.parentElement!.innerHTML = '<div class="w-6 h-6 sm:w-8 sm:h-8 bg-fc26-primary rounded flex items-center justify-center text-white font-bold text-xs">FC26</div>';
-                            }}
-                        />
-                    </div>
-                </div>
-                {/* Superjoin Logo */}
-                <div className="hidden sm:block relative">
-                    <div className="relative bg-fifa-card p-1 rounded-lg border border-fifa-surface card-shadow">
-                        <span className="text-[10px] font-black text-fifa-accent px-1">SUPERJOIN</span>
-                    </div>
-                </div>
-                <h1 className="text-base sm:text-xl font-black tracking-tighter">
-                    <span className="text-white">FIFA</span> <span className="text-fifa-accent">LEAGUE</span>
-                </h1>
-            </div>
-            
-            <button 
-                onClick={() => {
-                  if (!currentAdmin) {
-                    alert('Admin access required to add matches. Please login first.');
-                    setActiveTab(Tab.LOGIN);
-                    return;
-                  }
-                  setShowMatchForm(true);
-                }}
-                disabled={players.length < 2 || !currentAdmin}
-                className="bg-fifa-accent hover:opacity-90 disabled:bg-fifa-surface disabled:text-fifa-muted text-black font-bold py-2 px-3 sm:px-4 rounded-full flex items-center gap-1 sm:gap-2 transition-all shadow-lg shadow-yellow-900/30 active:scale-95 text-xs sm:text-sm"
-            >
-                <PlusCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden sm:inline">Result</span>
-            </button>
-        </div>
-      </div>
+  const tabs = [
+    { id: Tab.STANDINGS, label: 'Table', icon: Trophy },
+    { id: Tab.MATCHES, label: 'Matches', icon: History },
+    { id: Tab.DASHBOARD, label: 'Stats', icon: LayoutDashboard },
+    { id: Tab.PLAYERS, label: 'Squad', icon: Users },
+    { id: Tab.LOGIN, label: 'Admin', icon: Lock },
+  ];
 
-      <main className="max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
-        
-        {/* Navigation - Tab Style */}
-        <div className="bg-fifa-card rounded-xl border border-fifa-surface mb-4 sm:mb-8 sticky top-16 sm:top-20 z-30 card-shadow overflow-hidden">
-          <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-4 px-2 sm:px-4 py-2 sm:py-3 overflow-x-auto">
-            {[
-                { id: Tab.STANDINGS, label: 'Table', icon: Trophy },
-                { id: Tab.MATCHES, label: 'Matches', icon: History },
-                { id: Tab.DASHBOARD, label: 'Stats', icon: LayoutDashboard },
-                { id: Tab.PLAYERS, label: 'Clubs', icon: Users },
-                { id: Tab.LOGIN, label: 'Login', icon: Lock },
-            ].map(tab => (
-                <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-bold transition-all relative whitespace-nowrap
-                        ${activeTab === tab.id 
-                            ? 'text-white' 
-                            : 'text-fifa-muted hover:text-white'}`}
-                >
-                    <tab.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    <span>{tab.label}</span>
-                    {activeTab === tab.id && (
-                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-fifa-accent"></div>
-                    )}
-                </button>
+  // Top player for the hero section
+  const topPlayer = [...players].sort((a, b) => b.points - a.points)[0];
+
+  return (
+    <div className="relative z-10 min-h-screen">
+      {/* ===== TOP NAVIGATION BAR ===== */}
+      <header className="sticky top-0 z-50">
+        <div className="absolute inset-0 bg-surface-0/80 backdrop-blur-xl border-b border-glass-border"></div>
+        <div className="relative max-w-5xl mx-auto px-4 sm:px-6">
+          <div className="h-14 sm:h-16 flex items-center justify-between">
+            {/* Logo */}
+            <div className="flex items-center gap-3">
+              <div className="relative group">
+                <div className="absolute -inset-1 bg-gradient-to-r from-accent-green/20 to-accent-gold/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-glass-medium border border-glass-border flex items-center justify-center overflow-hidden">
+                  <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-accent-green" />
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm sm:text-base font-bold text-text-primary tracking-tight">FIFA</span>
+                <span className="text-sm sm:text-base font-bold gradient-text-static tracking-tight">LEAGUE</span>
+              </div>
+              <span className="hidden sm:inline-flex items-center text-[10px] font-mono font-medium text-text-muted bg-glass-light border border-glass-border rounded-md px-1.5 py-0.5">
+                S1
+              </span>
+            </div>
+
+            {/* Record Result Button */}
+            <button
+              onClick={() => {
+                if (!currentAdmin) {
+                  alert('Admin access required. Please login first.');
+                  setActiveTab(Tab.LOGIN);
+                  return;
+                }
+                setShowMatchForm(true);
+              }}
+              disabled={players.length < 2 || !currentAdmin}
+              className="btn-primary flex items-center gap-2 text-xs sm:text-sm disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:transform-none disabled:hover:shadow-none"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span className="hidden sm:inline">Record Result</span>
+              <span className="sm:hidden">Result</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* ===== HERO SECTION ===== */}
+      <section className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-surface-0 via-surface-1/50 to-surface-0"></div>
+        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="animate-fade-up">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-2 h-2 rounded-full bg-accent-green animate-glow-pulse"></div>
+                <span className="text-[11px] font-mono font-medium text-accent-green uppercase tracking-widest">Live Season</span>
+              </div>
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-text-primary leading-[1.1]">
+                FC26 League<br />
+                <span className="gradient-text">Tracker</span>
+              </h1>
+              <p className="mt-3 text-sm text-text-secondary max-w-md leading-relaxed">
+                Track matches, standings, and stats for your FIFA league. 
+                {matches.length > 0 && ` ${matches.length} matches played so far this season.`}
+              </p>
+            </div>
+
+            {/* Leader Card */}
+            {topPlayer && topPlayer.played > 0 && (
+              <div className="animate-stagger-2 glass-card gradient-border p-4 sm:p-5 min-w-[200px]">
+                <div className="flex items-center gap-2 mb-3">
+                  <Trophy className="w-3.5 h-3.5 text-accent-gold" />
+                  <span className="text-[10px] font-semibold text-accent-gold uppercase tracking-widest">League Leader</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <img
+                    src={topPlayer.avatarUrl}
+                    alt={topPlayer.name}
+                    className="avatar w-10 h-10 sm:w-12 sm:h-12"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${topPlayer.name}`;
+                    }}
+                  />
+                  <div>
+                    <div className="font-bold text-text-primary text-base sm:text-lg leading-tight">{topPlayer.name}</div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xl sm:text-2xl font-extrabold gradient-text-static font-mono">{topPlayer.points}</span>
+                      <span className="text-[10px] text-text-muted font-medium">PTS</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* ===== TAB NAVIGATION ===== */}
+      <nav className="sticky top-14 sm:top-16 z-40">
+        <div className="absolute inset-0 bg-surface-0/70 backdrop-blur-xl"></div>
+        <div className="relative max-w-5xl mx-auto px-4 sm:px-6">
+          <div className="flex items-center gap-1 py-2 overflow-x-auto scrollbar-none border-b border-glass-border">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`tab-item ${activeTab === tab.id ? 'active' : ''}`}
+              >
+                <tab.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span>{tab.label}</span>
+              </button>
             ))}
           </div>
         </div>
+      </nav>
 
-        <div className="animate-fade-in min-h-[50vh]">
-            {activeTab === Tab.STANDINGS && (
-                <Standings players={players} />
-            )}
-            
-            {activeTab === Tab.MATCHES && (
-                <MatchList matches={matches} players={players} />
-            )}
-
-            {activeTab === Tab.DASHBOARD && (
-                <Dashboard players={players} matches={matches} />
-            )}
-
-            {activeTab === Tab.PLAYERS && (
-                <PlayerManager 
-                    players={players} 
-                    onAddPlayer={handleAddPlayer} 
-                    onDeletePlayer={handleDeletePlayer}
-                />
-            )}
-
-            {activeTab === Tab.LOGIN && (
-                <div className="space-y-6">
-                    <Login 
-                        currentAdmin={currentAdmin}
-                        onLogin={(admin) => setCurrentAdmin(admin)}
-                        onLogout={() => setCurrentAdmin(null)}
-                    />
-                    {currentAdmin && <LoginDetails />}
-                </div>
-            )}
+      {/* ===== MAIN CONTENT ===== */}
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+        <div className="animate-fade-up min-h-[50vh]">
+          {activeTab === Tab.STANDINGS && <Standings players={players} />}
+          {activeTab === Tab.MATCHES && <MatchList matches={matches} players={players} />}
+          {activeTab === Tab.DASHBOARD && <Dashboard players={players} matches={matches} />}
+          {activeTab === Tab.PLAYERS && (
+            <PlayerManager players={players} onAddPlayer={handleAddPlayer} onDeletePlayer={handleDeletePlayer} />
+          )}
+          {activeTab === Tab.LOGIN && (
+            <div className="space-y-6">
+              <Login currentAdmin={currentAdmin} onLogin={(admin) => setCurrentAdmin(admin)} onLogout={() => setCurrentAdmin(null)} />
+              {currentAdmin && <LoginDetails />}
+            </div>
+          )}
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="py-6 sm:py-8 text-center text-fifa-muted text-xs border-t border-fifa-surface bg-fifa-card/50">
-        <div className="flex items-center justify-center gap-2 sm:gap-4 mb-2">
-          <img 
-            src="https://upload.wikimedia.org/wikipedia/en/thumb/0/05/FC_Barcelona_%28crest%29.svg/120px-FC_Barcelona_%28crest%29.svg.png" 
-            alt="FC26" 
-            className="h-4 sm:h-6 opacity-60"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.style.display = 'none';
-            }}
-          />
-          <img 
-            src="https://logos-world.net/wp-content/uploads/2021/02/FIFA-Logo.png" 
-            alt="FIFA" 
-            className="h-3 sm:h-5 opacity-60"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.style.display = 'none';
-            }}
-          />
+      {/* ===== FOOTER ===== */}
+      <footer className="relative border-t border-glass-border mt-12">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Zap className="w-4 h-4 text-text-muted" />
+              <span className="text-xs font-medium text-text-muted">FIFA League Tracker</span>
+              <span className="text-text-muted">·</span>
+              <span className="text-xs text-text-muted">FC26 Season 1</span>
+            </div>
+            <div className="text-[11px] text-text-muted font-medium">
+              Powered by <span className="text-text-secondary">Superjoin</span>
+            </div>
+          </div>
         </div>
-        <p className="text-[10px] sm:text-xs font-semibold">FIFA LEAGUE TRACKER • FC26 • SEASON 1</p>
-        <p className="text-[9px] sm:text-[10px] text-fifa-muted/70 mt-1">Powered by Superjoin</p>
       </footer>
 
-      {/* Modal */}
+      {/* ===== MATCH FORM MODAL ===== */}
       {showMatchForm && (
-        <MatchForm 
-            players={players} 
-            onAddMatch={handleAddMatch} 
-            onCancel={() => setShowMatchForm(false)} 
+        <MatchForm
+          players={players}
+          onAddMatch={handleAddMatch}
+          onCancel={() => setShowMatchForm(false)}
         />
       )}
     </div>
