@@ -33,3 +33,6 @@ export enum Tab {
 }
 
 export type LeagueMode = 'ABSOLUTE' | 'NORMALIZED';
+
+/** Standings tab: Normalised (comprehensive formula), PPG, or raw Table */
+export type StandingsView = 'NORMALISED' | 'PPG' | 'TABLE';

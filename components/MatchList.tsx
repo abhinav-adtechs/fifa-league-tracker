@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Match, Player } from '../types';
-import { Calendar, Filter, Users, X, Swords } from 'lucide-react';
+import { computeHeadToHead } from '../utils/headToHead';
+import { Calendar, Filter, Users, X, Swords, TrendingDown, Award, Flame } from 'lucide-react';
 
 interface MatchListProps {
   matches: Match[];
@@ -24,6 +25,11 @@ export const MatchList: React.FC<MatchListProps> = ({ matches, players }) => {
       m = m.filter(match => match.player1Id === filterP1 || match.player2Id === filterP1);
     }
     return m;
+  }, [matches, filterP1, filterP2]);
+
+  const h2h = useMemo(() => {
+    if (!filterP1 || !filterP2) return null;
+    return computeHeadToHead(filterP1, filterP2, matches);
   }, [matches, filterP1, filterP2]);
 
   if (matches.length === 0) {
@@ -79,6 +85,130 @@ export const MatchList: React.FC<MatchListProps> = ({ matches, players }) => {
       <div className="flex items-center gap-2 px-1">
         <span className="text-xs text-text-muted font-medium">{filteredMatches.length} match{filteredMatches.length !== 1 ? 'es' : ''}</span>
       </div>
+
+      {/* Head-to-Head comparison (when 2 players selected) */}
+      {h2h && filterP1 && filterP2 && (
+        <div className="glass-card gradient-border p-4 sm:p-6 animate-fade-up">
+          <div className="flex items-center gap-2 mb-4">
+            <Swords className="w-4 h-4 text-accent-green" />
+            <span className="text-[11px] font-semibold text-accent-green uppercase tracking-widest">Head to Head</span>
+          </div>
+          <div className="grid grid-cols-[1fr_auto_1fr] gap-4 sm:gap-6 items-start">
+            {/* Player A */}
+            <div className="flex flex-col items-center text-center">
+              <img
+                src={getPlayer(h2h.playerAId)?.avatarUrl}
+                alt={getPlayer(h2h.playerAId)?.name}
+                className="avatar w-14 h-14 sm:w-16 sm:h-16 mb-2"
+                onError={(e) => {
+                  const t = e.target as HTMLImageElement;
+                  t.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${getPlayer(h2h.playerAId)?.name}`;
+                }}
+              />
+              <span className="font-bold text-text-primary text-sm sm:text-base">{getPlayer(h2h.playerAId)?.name}</span>
+              <div className="mt-3 flex items-center gap-2">
+                <span className="text-lg sm:text-xl font-extrabold text-accent-green">{h2h.winsA}</span>
+                <span className="text-text-muted font-medium">W</span>
+                <span className="text-text-muted">·</span>
+                <span className="text-lg font-bold text-text-secondary">{h2h.draws}</span>
+                <span className="text-text-muted font-medium">D</span>
+                <span className="text-text-muted">·</span>
+                <span className="text-lg sm:text-xl font-extrabold text-accent-red">{h2h.winsB}</span>
+                <span className="text-text-muted font-medium">L</span>
+              </div>
+              <div className="mt-2 text-xs font-mono text-text-muted">
+                GF {h2h.goalsForA} · GA {h2h.goalsAgainstA}
+                {h2h.gdA !== 0 && (
+                  <span className={h2h.gdA > 0 ? ' text-accent-green ml-1' : ' text-accent-red ml-1'}>
+                    (GD {h2h.gdA > 0 ? '+' : ''}{h2h.gdA})
+                  </span>
+                )}
+              </div>
+              <div className="mt-2 flex items-center gap-1.5 text-[11px]">
+                <Flame className="w-3 h-3 text-accent-gold" />
+                <span className="font-medium text-text-secondary">Streak {h2h.streakA}</span>
+              </div>
+              {(h2h.biggestWinScoreA || h2h.biggestLossScoreA) && (
+                <div className="mt-2 space-y-1 text-[10px] text-text-muted">
+                  {h2h.biggestWinScoreA && (
+                    <div className="flex items-center gap-1 justify-center">
+                      <Award className="w-2.5 h-2.5 text-accent-green" />
+                      <span>Best win {h2h.biggestWinScoreA}</span>
+                    </div>
+                  )}
+                  {h2h.biggestLossScoreA && (
+                    <div className="flex items-center gap-1 justify-center">
+                      <TrendingDown className="w-2.5 h-2.5 text-accent-red" />
+                      <span>Worst loss {h2h.biggestLossScoreA}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* VS divider */}
+            <div className="flex flex-col items-center justify-center pt-8 sm:pt-10">
+              <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">VS</span>
+              <span className="text-2xl sm:text-3xl font-extrabold font-mono text-text-primary mt-1">
+                {h2h.matches.length}
+              </span>
+              <span className="text-[10px] text-text-muted">matches</span>
+            </div>
+
+            {/* Player B */}
+            <div className="flex flex-col items-center text-center">
+              <img
+                src={getPlayer(h2h.playerBId)?.avatarUrl}
+                alt={getPlayer(h2h.playerBId)?.name}
+                className="avatar w-14 h-14 sm:w-16 sm:h-16 mb-2"
+                onError={(e) => {
+                  const t = e.target as HTMLImageElement;
+                  t.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${getPlayer(h2h.playerBId)?.name}`;
+                }}
+              />
+              <span className="font-bold text-text-primary text-sm sm:text-base">{getPlayer(h2h.playerBId)?.name}</span>
+              <div className="mt-3 flex items-center gap-2">
+                <span className="text-lg sm:text-xl font-extrabold text-accent-green">{h2h.winsB}</span>
+                <span className="text-text-muted font-medium">W</span>
+                <span className="text-text-muted">·</span>
+                <span className="text-lg font-bold text-text-secondary">{h2h.draws}</span>
+                <span className="text-text-muted font-medium">D</span>
+                <span className="text-text-muted">·</span>
+                <span className="text-lg sm:text-xl font-extrabold text-accent-red">{h2h.winsA}</span>
+                <span className="text-text-muted font-medium">L</span>
+              </div>
+              <div className="mt-2 text-xs font-mono text-text-muted">
+                GF {h2h.goalsForB} · GA {h2h.goalsAgainstB}
+                {h2h.gdB !== 0 && (
+                  <span className={h2h.gdB > 0 ? ' text-accent-green ml-1' : ' text-accent-red ml-1'}>
+                    (GD {h2h.gdB > 0 ? '+' : ''}{h2h.gdB})
+                  </span>
+                )}
+              </div>
+              <div className="mt-2 flex items-center gap-1.5 text-[11px]">
+                <Flame className="w-3 h-3 text-accent-gold" />
+                <span className="font-medium text-text-secondary">Streak {h2h.streakB}</span>
+              </div>
+              {(h2h.biggestWinScoreB || h2h.biggestLossScoreB) && (
+                <div className="mt-2 space-y-1 text-[10px] text-text-muted">
+                  {h2h.biggestWinScoreB && (
+                    <div className="flex items-center gap-1 justify-center">
+                      <Award className="w-2.5 h-2.5 text-accent-green" />
+                      <span>Best win {h2h.biggestWinScoreB}</span>
+                    </div>
+                  )}
+                  {h2h.biggestLossScoreB && (
+                    <div className="flex items-center gap-1 justify-center">
+                      <TrendingDown className="w-2.5 h-2.5 text-accent-red" />
+                      <span>Worst loss {h2h.biggestLossScoreB}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {filteredMatches.length === 0 ? (
         <div className="glass-card text-center py-14">

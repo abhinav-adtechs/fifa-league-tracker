@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Player, Match, Tab } from './types';
+import type { StandingsView } from './types';
 import { Standings } from './components/Standings';
+import { getLeader, getNormalisedScoreDisplay } from './utils/standings';
 import { MatchList } from './components/MatchList';
 import { PlayerManager } from './components/PlayerManager';
 import { MatchForm } from './components/MatchForm';
@@ -15,6 +17,7 @@ const App: React.FC = () => {
   const [players, setPlayers] = useState<Player[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>(Tab.STANDINGS);
+  const [standingsView, setStandingsView] = useState<StandingsView>('NORMALISED');
   const [showMatchForm, setShowMatchForm] = useState(false);
   const [currentAdmin, setCurrentAdmin] = useState<Admin | null>(null);
 
@@ -141,8 +144,8 @@ const App: React.FC = () => {
     { id: Tab.LOGIN, label: 'Admin', icon: Lock },
   ];
 
-  // Top player for the hero section
-  const topPlayer = [...players].sort((a, b) => b.points - a.points)[0];
+  // Top player for the hero section — follows active standings view (Norm / PPG / Table)
+  const topPlayer = getLeader(players, standingsView);
 
   return (
     <div className="relative z-10 min-h-screen">
@@ -210,7 +213,7 @@ const App: React.FC = () => {
             </div>
 
             {/* Leader Card */}
-            {topPlayer && topPlayer.played > 0 && (
+            {topPlayer && (
               <div className="animate-stagger-2 glass-card gradient-border p-4 sm:p-5 min-w-[200px]">
                 <div className="flex items-center gap-2 mb-3">
                   <Trophy className="w-3.5 h-3.5 text-accent-gold" />
@@ -229,8 +232,16 @@ const App: React.FC = () => {
                   <div>
                     <div className="font-bold text-text-primary text-base sm:text-lg leading-tight">{topPlayer.name}</div>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xl sm:text-2xl font-extrabold gradient-text-static font-mono">{topPlayer.points}</span>
-                      <span className="text-[10px] text-text-muted font-medium">PTS</span>
+                      <span className="text-xl sm:text-2xl font-extrabold gradient-text-static font-mono">
+                        {standingsView === 'NORMALISED'
+                          ? getNormalisedScoreDisplay(topPlayer)
+                          : standingsView === 'PPG'
+                            ? (topPlayer.played > 0 ? (topPlayer.points / topPlayer.played).toFixed(2) : '0.00')
+                            : topPlayer.points}
+                      </span>
+                      <span className="text-[10px] text-text-muted font-medium">
+                        {standingsView === 'NORMALISED' ? 'NORM' : standingsView === 'PPG' ? 'PPG' : 'PTS'}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -262,7 +273,13 @@ const App: React.FC = () => {
       {/* ===== MAIN CONTENT ===== */}
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
         <div className="animate-fade-up min-h-[50vh]">
-          {activeTab === Tab.STANDINGS && <Standings players={players} />}
+          {activeTab === Tab.STANDINGS && (
+              <Standings
+                players={players}
+                view={standingsView}
+                onViewChange={setStandingsView}
+              />
+            )}
           {activeTab === Tab.MATCHES && <MatchList matches={matches} players={players} />}
           {activeTab === Tab.DASHBOARD && <Dashboard players={players} matches={matches} />}
           {activeTab === Tab.PLAYERS && (
