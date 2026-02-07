@@ -2,8 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { Player, Match } from '../types';
 import type { StandingsView } from '../types';
 import { getNormalisedScoreFromStats } from '../utils/standings';
+import { computeLeagueStats } from '../utils/leagueStats';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { TrendingUp, Activity, Award, Target, BarChart3, Calculator, Trophy, LayoutList } from 'lucide-react';
+import { TrendingUp, Activity, Award, Target, BarChart3, Calculator, Trophy, LayoutList, Globe, User, Minus } from 'lucide-react';
 
 const TRAJECTORY_VIEWS: { id: StandingsView; label: string; icon: typeof Trophy }[] = [
   { id: 'NORMALISED', label: 'Normalised', icon: Calculator },
@@ -71,9 +72,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ players, matches }) => {
     return history;
   }, [players, sortedMatches, trajectoryView]);
 
-  const totalGoals = matches.reduce((acc, m) => acc + m.score1 + m.score2, 0);
-  const avgGoals = matches.length ? (totalGoals / matches.length).toFixed(1) : '0';
-  const totalGames = matches.length;
+  const leagueStats = useMemo(() => computeLeagueStats(matches), [matches]);
   const topScorer = [...players].sort((a, b) => b.gf - a.gf)[0];
   const bestDefender = [...players].sort((a, b) => {
     const gaPerGameA = a.played > 0 ? a.ga / a.played : Infinity;
@@ -81,23 +80,45 @@ export const Dashboard: React.FC<DashboardProps> = ({ players, matches }) => {
     return gaPerGameA - gaPerGameB;
   })[0];
 
-  const stats = [
+  const leagueStatsCards = [
     {
       label: 'Total Matches',
-      value: totalGames,
+      value: leagueStats.totalMatches,
       icon: Activity,
       color: 'text-accent-green',
       bgColor: 'bg-accent-green/10',
       borderColor: 'border-accent-green/15',
     },
     {
-      label: 'Avg Goals / Match',
-      value: avgGoals,
+      label: 'Total Goals',
+      value: leagueStats.totalGoals,
       icon: TrendingUp,
       color: 'text-accent-gold',
       bgColor: 'bg-accent-gold/10',
       borderColor: 'border-accent-gold/15',
     },
+    {
+      label: 'Avg Goals / Match',
+      value: leagueStats.totalMatches ? leagueStats.avgGoalsPerMatch.toFixed(1) : '0',
+      icon: BarChart3,
+      color: 'text-accent-blue',
+      bgColor: 'bg-accent-blue/10',
+      borderColor: 'border-accent-blue/15',
+    },
+    {
+      label: 'Draws',
+      value: leagueStats.totalDraws,
+      subtitle: leagueStats.totalMatches
+        ? `${((leagueStats.totalDraws / leagueStats.totalMatches) * 100).toFixed(0)}% of matches`
+        : undefined,
+      icon: Minus,
+      color: 'text-text-secondary',
+      bgColor: 'bg-glass-strong',
+      borderColor: 'border-glass-border',
+    },
+  ];
+
+  const playerStatsCards = [
     {
       label: 'Golden Boot',
       value: topScorer?.name || '—',
@@ -119,27 +140,61 @@ export const Dashboard: React.FC<DashboardProps> = ({ players, matches }) => {
   ];
 
   return (
-    <div className="space-y-6">
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {stats.map((stat, i) => (
-          <div key={i} className="stat-card group">
-            <div className="flex items-center gap-2 mb-3">
-              <div className={`w-7 h-7 rounded-lg ${stat.bgColor} border ${stat.borderColor} flex items-center justify-center`}>
-                <stat.icon className={`w-3.5 h-3.5 ${stat.color}`} />
+    <div className="space-y-8">
+      {/* League-level stats (aggregate over all matches) */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-text-muted">
+          <Globe className="w-4 h-4" />
+          <span className="text-[11px] font-semibold uppercase tracking-wider">League stats</span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {leagueStatsCards.map((stat, i) => (
+            <div key={i} className="stat-card group">
+              <div className="flex items-center gap-2 mb-3">
+                <div className={`w-7 h-7 rounded-lg ${stat.bgColor} border ${stat.borderColor} flex items-center justify-center`}>
+                  <stat.icon className={`w-3.5 h-3.5 ${stat.color}`} />
+                </div>
+              </div>
+              <div className={`text-xl sm:text-2xl font-extrabold ${stat.color} font-mono tracking-tight truncate`}>
+                {stat.value}
+              </div>
+              {stat.subtitle && (
+                <div className="text-[10px] font-medium text-text-muted mt-0.5">{stat.subtitle}</div>
+              )}
+              <div className="text-[10px] sm:text-[11px] font-medium text-text-muted mt-1 uppercase tracking-wider">
+                {stat.label}
               </div>
             </div>
-            <div className={`text-xl sm:text-2xl font-extrabold ${stat.color} font-mono tracking-tight truncate`}>
-              {stat.value}
+          ))}
+        </div>
+      </div>
+
+      {/* Player-level stats (individual awards / per-player) */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-text-muted">
+          <User className="w-4 h-4" />
+          <span className="text-[11px] font-semibold uppercase tracking-wider">Player stats</span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {playerStatsCards.map((stat, i) => (
+            <div key={i} className="stat-card group">
+              <div className="flex items-center gap-2 mb-3">
+                <div className={`w-7 h-7 rounded-lg ${stat.bgColor} border ${stat.borderColor} flex items-center justify-center`}>
+                  <stat.icon className={`w-3.5 h-3.5 ${stat.color}`} />
+                </div>
+              </div>
+              <div className={`text-xl sm:text-2xl font-extrabold ${stat.color} font-mono tracking-tight truncate`}>
+                {stat.value}
+              </div>
+              {stat.subtitle && (
+                <div className="text-[10px] font-medium text-text-muted mt-0.5">{stat.subtitle}</div>
+              )}
+              <div className="text-[10px] sm:text-[11px] font-medium text-text-muted mt-1 uppercase tracking-wider">
+                {stat.label}
+              </div>
             </div>
-            {stat.subtitle && (
-              <div className="text-[10px] font-medium text-text-muted mt-0.5">{stat.subtitle}</div>
-            )}
-            <div className="text-[10px] sm:text-[11px] font-medium text-text-muted mt-1 uppercase tracking-wider">
-              {stat.label}
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
       {/* Season Trajectory with 3 formula tabs */}

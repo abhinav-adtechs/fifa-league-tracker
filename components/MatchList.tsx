@@ -8,29 +8,55 @@ interface MatchListProps {
   players: Player[];
 }
 
+const DATE_PERIODS = [
+  { value: 'all', label: 'All time' },
+  { value: '7d', label: 'Last 7 days' },
+  { value: '30d', label: 'Last 30 days' },
+  { value: 'month', label: 'This month' },
+] as const;
+
 export const MatchList: React.FC<MatchListProps> = ({ matches, players }) => {
-  const [filterP1, setFilterP1] = useState<string>('');
-  const [filterP2, setFilterP2] = useState<string>('');
+  const [h2hPlayerA, setH2hPlayerA] = useState<string>('');
+  const [h2hPlayerB, setH2hPlayerB] = useState<string>('');
+  const [filterPlayer, setFilterPlayer] = useState<string>('');
+  const [filterDatePeriod, setFilterDatePeriod] = useState<string>('all');
 
   const getPlayer = (id: string) => players.find(p => p.id === id);
 
   const filteredMatches = useMemo(() => {
     let m = [...matches].sort((a, b) => b.timestamp - a.timestamp);
-    if (filterP1 && filterP2) {
+
+    if (h2hPlayerA && h2hPlayerB) {
       m = m.filter(match =>
-        (match.player1Id === filterP1 && match.player2Id === filterP2) ||
-        (match.player1Id === filterP2 && match.player2Id === filterP1)
+        (match.player1Id === h2hPlayerA && match.player2Id === h2hPlayerB) ||
+        (match.player1Id === h2hPlayerB && match.player2Id === h2hPlayerA)
       );
-    } else if (filterP1) {
-      m = m.filter(match => match.player1Id === filterP1 || match.player2Id === filterP1);
+    } else if (filterPlayer) {
+      m = m.filter(match => match.player1Id === filterPlayer || match.player2Id === filterPlayer);
     }
+
+    if (filterDatePeriod && filterDatePeriod !== 'all') {
+      const now = Date.now();
+      const day = 24 * 60 * 60 * 1000;
+      let from = 0;
+      if (filterDatePeriod === '7d') from = now - 7 * day;
+      else if (filterDatePeriod === '30d') from = now - 30 * day;
+      else if (filterDatePeriod === 'month') {
+        const d = new Date();
+        d.setDate(1);
+        d.setHours(0, 0, 0, 0);
+        from = d.getTime();
+      }
+      m = m.filter(match => match.timestamp >= from);
+    }
+
     return m;
-  }, [matches, filterP1, filterP2]);
+  }, [matches, h2hPlayerA, h2hPlayerB, filterPlayer, filterDatePeriod]);
 
   const h2h = useMemo(() => {
-    if (!filterP1 || !filterP2) return null;
-    return computeHeadToHead(filterP1, filterP2, matches);
-  }, [matches, filterP1, filterP2]);
+    if (!h2hPlayerA || !h2hPlayerB) return null;
+    return computeHeadToHead(h2hPlayerA, h2hPlayerB, matches);
+  }, [matches, h2hPlayerA, h2hPlayerB]);
 
   if (matches.length === 0) {
     return (
@@ -46,34 +72,76 @@ export const MatchList: React.FC<MatchListProps> = ({ matches, players }) => {
 
   return (
     <div className="space-y-5">
-      {/* Filter Bar */}
+      {/* Head to Head Comparison */}
+      <div className="glass-card p-3 sm:p-4 flex flex-col gap-3">
+        <div className="flex items-center gap-2 text-text-muted">
+          <Swords className="w-3.5 h-3.5" />
+          <span className="text-[11px] font-semibold uppercase tracking-wider">Head to Head Comparison</span>
+        </div>
+        <p className="text-xs text-text-secondary -mt-1">Select two players to compare stats and view matches between them.</p>
+        <div className="flex items-center gap-2 flex-wrap">
+          <select
+            value={h2hPlayerA}
+            onChange={(e) => setH2hPlayerA(e.target.value)}
+            className="select-field flex-1 min-w-0 sm:w-40 text-xs sm:text-sm"
+          >
+            <option value="">Select player</option>
+            {players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+          <span className="text-text-muted text-xs font-bold">VS</span>
+          <select
+            value={h2hPlayerB}
+            onChange={(e) => setH2hPlayerB(e.target.value)}
+            className="select-field flex-1 min-w-0 sm:w-40 text-xs sm:text-sm"
+          >
+            <option value="">Select player</option>
+            {players.map(p => <option key={p.id} value={p.id} disabled={p.id === h2hPlayerA}>{p.name}</option>)}
+          </select>
+          {(h2hPlayerA || h2hPlayerB) && (
+            <button
+              onClick={() => { setH2hPlayerA(''); setH2hPlayerB(''); }}
+              className="p-2 text-accent-red hover:bg-accent-red/10 rounded-lg transition-colors shrink-0"
+              aria-label="Clear selection"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Filters: date + individual player (only when not in H2H mode) */}
       <div className="glass-card p-3 sm:p-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
         <div className="flex items-center gap-2 text-text-muted">
           <Filter className="w-3.5 h-3.5" />
           <span className="text-[11px] font-semibold uppercase tracking-wider">Filters</span>
         </div>
-        <div className="flex items-center gap-2 flex-1 sm:flex-initial">
+        <div className="flex flex-wrap items-center gap-2 flex-1 sm:flex-initial">
           <select
-            value={filterP1}
-            onChange={(e) => setFilterP1(e.target.value)}
-            className="select-field flex-1 sm:w-40 text-xs sm:text-sm"
+            value={filterDatePeriod}
+            onChange={(e) => setFilterDatePeriod(e.target.value)}
+            className="select-field w-full sm:w-36 text-xs sm:text-sm"
+            title="Filter by date range"
           >
-            <option value="">Any Player</option>
-            {players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            {DATE_PERIODS.map(({ value, label }) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
           </select>
-          <span className="text-text-muted text-xs font-bold">VS</span>
-          <select
-            value={filterP2}
-            onChange={(e) => setFilterP2(e.target.value)}
-            className="select-field flex-1 sm:w-40 text-xs sm:text-sm"
-          >
-            <option value="">Any Player</option>
-            {players.map(p => <option key={p.id} value={p.id} disabled={p.id === filterP1}>{p.name}</option>)}
-          </select>
-          {(filterP1 || filterP2) && (
+          {!(h2hPlayerA && h2hPlayerB) && (
+            <select
+              value={filterPlayer}
+              onChange={(e) => setFilterPlayer(e.target.value)}
+              className="select-field flex-1 min-w-0 sm:w-40 text-xs sm:text-sm"
+              title="Show matches for one player"
+            >
+              <option value="">Any player</option>
+              {players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          )}
+          {(filterPlayer || filterDatePeriod !== 'all') && (
             <button
-              onClick={() => { setFilterP1(''); setFilterP2(''); }}
+              onClick={() => { setFilterPlayer(''); setFilterDatePeriod('all'); }}
               className="p-2 text-accent-red hover:bg-accent-red/10 rounded-lg transition-colors shrink-0"
+              aria-label="Clear filters"
             >
               <X className="w-4 h-4" />
             </button>
@@ -86,8 +154,8 @@ export const MatchList: React.FC<MatchListProps> = ({ matches, players }) => {
         <span className="text-xs text-text-muted font-medium">{filteredMatches.length} match{filteredMatches.length !== 1 ? 'es' : ''}</span>
       </div>
 
-      {/* Head-to-Head comparison (when 2 players selected) */}
-      {h2h && filterP1 && filterP2 && (
+      {/* Head-to-Head stats panel (when 2 players selected) */}
+      {h2h && h2hPlayerA && h2hPlayerB && (
         <div className="glass-card gradient-border p-4 sm:p-6 animate-fade-up">
           <div className="flex items-center gap-2 mb-4">
             <Swords className="w-4 h-4 text-accent-green" />

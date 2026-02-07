@@ -36,3 +36,13 @@ export type LeagueMode = 'ABSOLUTE' | 'NORMALIZED';
 
 /** Standings tab: Normalised (comprehensive formula), PPG, or raw Table */
 export type StandingsView = 'NORMALISED' | 'PPG' | 'TABLE';
+
+/** League-level stats: aggregate over all matches (not per-player). */
+export interface LeagueStats {
+  totalMatches: number;
+  totalGoals: number;
+  avgGoalsPerMatch: number;
+  totalDraws: number;
+  totalHomeWins: number;  // player1 wins
+  totalAwayWins: number;  // player2 wins
+}
