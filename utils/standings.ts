@@ -1,4 +1,4 @@
-import { Player } from '../types';
+import { Player, Match } from '../types';
 import type { StandingsView } from '../types';
 
 /**
@@ -69,4 +69,89 @@ export function getSortedByView(players: Player[], view: StandingsView): Player[
 export function getLeader(players: Player[], view: StandingsView): Player | undefined {
   const sorted = getSortedByView(players, view);
   return sorted.find(p => p.played > 0) ?? undefined;
+}
+
+/**
+ * Recalculate all per-player stats (played, wins, draws, losses, gf, ga, gd, points,
+ * ppg, form) purely from the raw matches array.
+ *
+ * This ignores any denormalised stats saved on the Player records in the DB and
+ * always derives the latest numbers from match history.
+ */
+export function computePlayersWithStats(players: Player[], matches: Match[]): Player[] {
+  // Start with a clean stats slate for every player but keep identity + avatar
+  const map: Record<string, Player> = {};
+  for (const p of players) {
+    map[p.id] = {
+      ...p,
+      played: 0,
+      wins: 0,
+      draws: 0,
+      losses: 0,
+      gf: 0,
+      ga: 0,
+      gd: 0,
+      points: 0,
+      ppg: 0,
+      form: [],
+    };
+  }
+
+  // Process matches in chronological order so form history is correct
+  const chronological = [...matches].sort((a, b) => a.timestamp - b.timestamp);
+
+  for (const m of chronological) {
+    const p1 = map[m.player1Id];
+    const p2 = map[m.player2Id];
+    if (!p1 || !p2) continue;
+
+    // Player 1
+    p1.played += 1;
+    p1.gf += m.score1;
+    p1.ga += m.score2;
+    p1.gd = p1.gf - p1.ga;
+
+    // Player 2
+    p2.played += 1;
+    p2.gf += m.score2;
+    p2.ga += m.score1;
+    p2.gd = p2.gf - p2.ga;
+
+    if (m.score1 > m.score2) {
+      // p1 win
+      p1.wins += 1;
+      p1.points += 3;
+      p1.form = [...p1.form, 'W'];
+
+      p2.losses += 1;
+      p2.form = [...p2.form, 'L'];
+    } else if (m.score2 > m.score1) {
+      // p2 win
+      p2.wins += 1;
+      p2.points += 3;
+      p2.form = [...p2.form, 'W'];
+
+      p1.losses += 1;
+      p1.form = [...p1.form, 'L'];
+    } else {
+      // draw
+      p1.draws += 1;
+      p2.draws += 1;
+      p1.points += 1;
+      p2.points += 1;
+      p1.form = [...p1.form, 'D'];
+      p2.form = [...p2.form, 'D'];
+    }
+  }
+
+  // Finalise derived values like PPG, preserving original ordering
+  return players.map(original => {
+    const computed = map[original.id];
+    if (!computed) return original;
+    const ppg = computed.played > 0 ? computed.points / computed.played : 0;
+    return {
+      ...computed,
+      ppg,
+    };
+  });
 }

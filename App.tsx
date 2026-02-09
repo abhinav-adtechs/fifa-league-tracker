@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Player, Match, Tab } from './types';
 import type { StandingsView } from './types';
 import { Standings } from './components/Standings';
-import { getLeader, getNormalisedScoreDisplay } from './utils/standings';
+import { getLeader, getNormalisedScoreDisplay, computePlayersWithStats } from './utils/standings';
 import { MatchList } from './components/MatchList';
 import { PlayerManager } from './components/PlayerManager';
 import { MatchForm } from './components/MatchForm';
@@ -109,31 +109,6 @@ const App: React.FC = () => {
     db.saveMatches(updatedMatches).catch(console.error);
     setShowMatchForm(false);
     setActiveTab(Tab.MATCHES);
-
-    const updatedPlayers = players.map(p => {
-      if (p.id !== p1Id && p.id !== p2Id) return p;
-      const isP1 = p.id === p1Id;
-      const myScore = isP1 ? s1 : s2;
-      const oppScore = isP1 ? s2 : s1;
-      let result: 'W' | 'D' | 'L' = 'D';
-      if (myScore > oppScore) result = 'W';
-      if (myScore < oppScore) result = 'L';
-      const newPlayed = p.played + 1;
-      const newWins = p.wins + (result === 'W' ? 1 : 0);
-      const newDraws = p.draws + (result === 'D' ? 1 : 0);
-      const newLosses = p.losses + (result === 'L' ? 1 : 0);
-      const newPoints = p.points + (result === 'W' ? 3 : result === 'D' ? 1 : 0);
-      return {
-        ...p,
-        played: newPlayed, wins: newWins, draws: newDraws, losses: newLosses,
-        gf: p.gf + myScore, ga: p.ga + oppScore,
-        gd: p.gd + (myScore - oppScore), points: newPoints,
-        ppg: newPoints / newPlayed,
-        form: [...p.form, result]
-      };
-    });
-    setPlayers(updatedPlayers);
-    db.savePlayers(updatedPlayers).catch(console.error);
   };
 
   const tabs = [
@@ -145,7 +120,10 @@ const App: React.FC = () => {
   ];
 
   // Top player for the hero section — follows active standings view (Norm / PPG / Table)
-  const topPlayer = getLeader(players, standingsView);
+  // Always derive live stats from raw matches instead of relying on stored stats
+  const playersWithStats = computePlayersWithStats(players, matches);
+
+  const topPlayer = getLeader(playersWithStats, standingsView);
 
   return (
     <div className="relative z-10 min-h-screen">
@@ -274,16 +252,16 @@ const App: React.FC = () => {
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
         <div className="animate-fade-up min-h-[50vh]">
           {activeTab === Tab.STANDINGS && (
-              <Standings
-                players={players}
-                view={standingsView}
-                onViewChange={setStandingsView}
-              />
-            )}
-          {activeTab === Tab.MATCHES && <MatchList matches={matches} players={players} />}
-          {activeTab === Tab.DASHBOARD && <Dashboard players={players} matches={matches} />}
+            <Standings
+              players={playersWithStats}
+              view={standingsView}
+              onViewChange={setStandingsView}
+            />
+          )}
+          {activeTab === Tab.MATCHES && <MatchList matches={matches} players={playersWithStats} />}
+          {activeTab === Tab.DASHBOARD && <Dashboard players={playersWithStats} matches={matches} />}
           {activeTab === Tab.PLAYERS && (
-            <PlayerManager players={players} onAddPlayer={handleAddPlayer} onDeletePlayer={handleDeletePlayer} />
+            <PlayerManager players={playersWithStats} onAddPlayer={handleAddPlayer} onDeletePlayer={handleDeletePlayer} />
           )}
           {activeTab === Tab.LOGIN && (
             <div className="space-y-6">
