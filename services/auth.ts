@@ -1,4 +1,6 @@
+import { Capacitor } from '@capacitor/core';
 import { supabase } from './supabaseClient';
+import { sessionStorage } from './sessionStorage';
 
 export interface Admin {
   id: string;
@@ -15,18 +17,25 @@ export interface LoginAuditEntry {
   user_agent: string | null;
 }
 
-const AUTH_STORAGE_KEY = 'fifa_admin_auth';
+const AUTH_STORAGE_KEY = 'admin_auth';
+
+function getUserAgent(): string {
+  if (Capacitor.isNativePlatform()) {
+    return 'FIFA League Tracker iOS';
+  }
+  return typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown';
+}
 
 export const auth = {
   // Check if user is authenticated
-  isAuthenticated: (): boolean => {
-    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+  isAuthenticated: async (): Promise<boolean> => {
+    const stored = await sessionStorage.getItem(AUTH_STORAGE_KEY);
     if (!stored) return false;
     try {
       const data = JSON.parse(stored);
       // Check if session is still valid (24 hours)
       if (Date.now() - data.timestamp > 24 * 60 * 60 * 1000) {
-        localStorage.removeItem(AUTH_STORAGE_KEY);
+        await sessionStorage.removeItem(AUTH_STORAGE_KEY);
         return false;
       }
       return true;
@@ -36,13 +45,13 @@ export const auth = {
   },
 
   // Get current admin
-  getCurrentAdmin: (): Admin | null => {
-    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+  getCurrentAdmin: async (): Promise<Admin | null> => {
+    const stored = await sessionStorage.getItem(AUTH_STORAGE_KEY);
     if (!stored) return null;
     try {
       const data = JSON.parse(stored);
       if (Date.now() - data.timestamp > 24 * 60 * 60 * 1000) {
-        localStorage.removeItem(AUTH_STORAGE_KEY);
+        await sessionStorage.removeItem(AUTH_STORAGE_KEY);
         return null;
       }
       return data.admin;
@@ -67,7 +76,7 @@ export const auth = {
         .then(res => res.json())
         .then(data => data.ip)
         .catch(() => null);
-      const userAgent = navigator.userAgent;
+      const userAgent = getUserAgent();
 
       if (rpcError || !adminData || adminData.length === 0) {
         // Log failed login attempt
@@ -102,8 +111,8 @@ export const auth = {
         .update({ last_used_at: new Date().toISOString() })
         .eq('id', matchedAdmin.id);
 
-      // Store session
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+      // Store session (Capacitor Preferences on iOS, localStorage on web)
+      await sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
         admin: matchedAdmin,
         timestamp: Date.now()
       }));
@@ -116,8 +125,8 @@ export const auth = {
   },
 
   // Logout
-  logout: (): void => {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
+  logout: async (): Promise<void> => {
+    await sessionStorage.removeItem(AUTH_STORAGE_KEY);
   },
 
   // Get login audit entries

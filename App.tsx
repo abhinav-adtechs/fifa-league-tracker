@@ -56,9 +56,9 @@ const App: React.FC = () => {
       setMatches(loadedMatches);
     };
     loadData();
-    if (auth.isAuthenticated()) {
-      setCurrentAdmin(auth.getCurrentAdmin());
-    }
+    auth.isAuthenticated().then((ok) => {
+      if (ok) auth.getCurrentAdmin().then(setCurrentAdmin);
+    });
   }, []);
 
   const handleAddPlayer = (name: string) => {

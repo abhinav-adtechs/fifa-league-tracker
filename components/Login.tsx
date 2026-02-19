@@ -27,8 +27,8 @@ export const Login: React.FC<LoginProps> = ({ currentAdmin, onLogin, onLogout })
     }
   };
 
-  const handleLogout = () => {
-    auth.logout();
+  const handleLogout = async () => {
+    await auth.logout();
     onLogout();
   };
 
