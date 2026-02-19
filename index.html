@@ -527,6 +527,32 @@
         box-shadow: 0 12px 40px -12px rgba(0,0,0,0.3);
       }
 
+      /* ===== DATE SECTION (bordered block per day) ===== */
+      .date-section-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      /* Compact match row inside date section */
+      .match-row-compact {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 10px;
+        gap: 8px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        transition: background 0.15s ease;
+      }
+      .match-row-compact:last-child {
+        border-bottom: none;
+      }
+      .match-row-compact:hover {
+        background: rgba(255, 255, 255, 0.02);
+      }
+
       /* ===== SHIMMER LOADING ===== */
       .shimmer {
         background: linear-gradient(90deg, transparent 33%, rgba(255,255,255,0.04) 50%, transparent 66%);

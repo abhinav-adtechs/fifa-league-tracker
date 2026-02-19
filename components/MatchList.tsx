@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Match, Player } from '../types';
 import { computeHeadToHead } from '../utils/headToHead';
-import { Calendar, Filter, Users, X, Swords, TrendingDown, Award, Flame } from 'lucide-react';
+import { Calendar, Filter, Users, X, Swords, TrendingDown, Award, Flame, BarChart3 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface MatchListProps {
   matches: Match[];
@@ -57,6 +58,55 @@ export const MatchList: React.FC<MatchListProps> = ({ matches, players }) => {
     if (!h2hPlayerA || !h2hPlayerB) return null;
     return computeHeadToHead(h2hPlayerA, h2hPlayerB, matches);
   }, [matches, h2hPlayerA, h2hPlayerB]);
+
+  /** Start of day in ms (local time) for grouping */
+  const getDayKey = (ts: number) => {
+    const d = new Date(ts);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  };
+
+  /** Histogram: last 30 days, count per day from filtered matches */
+  const last30DaysChartData = useMemo(() => {
+    const now = Date.now();
+    const dayMs = 24 * 60 * 60 * 1000;
+    const out: { date: string; dateKey: number; count: number; fullLabel: string }[] = [];
+    for (let i = 29; i >= 0; i--) {
+      const t = now - i * dayMs;
+      const key = getDayKey(t);
+      const count = filteredMatches.filter(m => getDayKey(m.timestamp) === key).length;
+      const d = new Date(t);
+      out.push({
+        date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        dateKey: key,
+        count,
+        fullLabel: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      });
+    }
+    return out;
+  }, [filteredMatches]);
+
+  /** Matches grouped by date (newest first), for list rendering */
+  const matchesByDate = useMemo(() => {
+    const map = new Map<number, Match[]>();
+    filteredMatches.forEach(m => {
+      const key = getDayKey(m.timestamp);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(m);
+    });
+    return Array.from(map.entries())
+      .sort(([a], [b]) => b - a)
+      .map(([dateKey, dayMatches]) => ({
+        dateKey,
+        dateLabel: new Date(dateKey).toLocaleDateString('en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        }),
+        matches: dayMatches.sort((a, b) => b.timestamp - a.timestamp),
+      }));
+  }, [filteredMatches]);
 
   if (matches.length === 0) {
     return (
@@ -152,6 +202,52 @@ export const MatchList: React.FC<MatchListProps> = ({ matches, players }) => {
       {/* Results Count */}
       <div className="flex items-center gap-2 px-1">
         <span className="text-xs text-text-muted font-medium">{filteredMatches.length} match{filteredMatches.length !== 1 ? 'es' : ''}</span>
+      </div>
+
+      {/* Last 30 days – matches per day (respects current filters / H2H) */}
+      <div className="glass-card p-3 sm:p-4">
+        <div className="flex items-center gap-2 text-text-muted mb-3">
+          <BarChart3 className="w-3.5 h-3.5" />
+          <span className="text-[11px] font-semibold uppercase tracking-wider">Matches in the last 30 days</span>
+        </div>
+        <div className="h-[180px] sm:h-[200px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={last30DaysChartData} margin={{ top: 6, right: 6, bottom: 4, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+              <XAxis
+                dataKey="date"
+                stroke="rgba(255,255,255,0.1)"
+                tick={{ fontSize: 9, fill: '#55556A', fontFamily: 'JetBrains Mono' }}
+                axisLine={{ stroke: 'rgba(255,255,255,0.04)' }}
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                allowDecimals={false}
+                stroke="rgba(255,255,255,0.1)"
+                tick={{ fontSize: 10, fill: '#55556A', fontFamily: 'JetBrains Mono' }}
+                axisLine={{ stroke: 'rgba(255,255,255,0.04)' }}
+                width={24}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'rgba(15, 15, 36, 0.95)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '12px',
+                  fontSize: '11px',
+                  fontFamily: 'JetBrains Mono',
+                }}
+                labelFormatter={(_, payload) => payload[0]?.payload?.fullLabel ?? ''}
+                formatter={(value: number) => [`${value} match${value !== 1 ? 'es' : ''}`, 'Count']}
+              />
+              <Bar
+                dataKey="count"
+                fill="#00E676"
+                radius={[4, 4, 0, 0]}
+                maxBarSize={24}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
       {/* Head-to-Head stats panel (when 2 players selected) */}
@@ -284,113 +380,77 @@ export const MatchList: React.FC<MatchListProps> = ({ matches, players }) => {
           <p className="text-text-secondary font-medium">No matches found for this selection</p>
         </div>
       ) : (
-        <div className="grid gap-3">
-          {filteredMatches.map((match, index) => {
-            const p1 = getPlayer(match.player1Id);
-            const p2 = getPlayer(match.player2Id);
-            const p1Won = match.score1 > match.score2;
-            const p2Won = match.score2 > match.score1;
-            const isDraw = match.score1 === match.score2;
+        <div className="space-y-4">
+          {matchesByDate.map(({ dateKey, dateLabel, matches: dayMatches }) => (
+            <div key={dateKey} className="date-section-card">
+              {/* Date header inside the bordered card */}
+              <div className="flex items-center gap-2 px-3 py-2 border-b border-white/6">
+                <Calendar className="w-3 h-3 text-accent-green shrink-0" />
+                <span className="text-[11px] font-semibold text-text-primary">{dateLabel}</span>
+                <span className="text-[10px] font-mono text-text-muted ml-1">
+                  {dayMatches.length} match{dayMatches.length !== 1 ? 'es' : ''}
+                </span>
+              </div>
+              {/* Compact match rows inside the same bordered block */}
+              <div>
+                {dayMatches.map((match) => {
+                  const p1 = getPlayer(match.player1Id);
+                  const p2 = getPlayer(match.player2Id);
+                  const p1Won = match.score1 > match.score2;
+                  const p2Won = match.score2 > match.score1;
+                  const isDraw = match.score1 === match.score2;
 
-            return (
-              <div
-                key={match.id}
-                className="match-card"
-                style={{ animationDelay: `${index * 0.03}s` }}
-              >
-                {/* Match Header */}
-                <div className="px-4 py-2 border-b border-glass-border flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-text-muted">
-                    <Calendar className="w-3 h-3" />
-                    <span className="text-[11px] font-medium">
-                      {new Date(match.timestamp).toLocaleDateString('en-US', {
-                        month: 'short', day: 'numeric', year: 'numeric'
-                      })}
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-mono text-text-muted">#{match.id.slice(0, 6)}</span>
-                </div>
-
-                {/* Match Body */}
-                <div className="p-4 sm:p-5">
-                  <div className="flex items-center justify-between">
-                    {/* Player 1 */}
-                    <div className={`flex-1 flex flex-col items-center gap-2 transition-opacity ${p1Won ? 'opacity-100' : isDraw ? 'opacity-80' : 'opacity-50'}`}>
-                      <div className="relative">
+                  return (
+                    <div key={match.id} className="match-row-compact">
+                      <div className={`flex-1 min-w-0 flex items-center gap-2 justify-end ${p1Won ? 'opacity-100' : isDraw ? 'opacity-80' : 'opacity-50'}`}>
+                        <span className="text-[10px] sm:text-[11px] font-medium text-text-primary truncate text-right">
+                          {p1?.name || 'Unknown'}
+                        </span>
                         <img
                           src={p1?.avatarUrl}
-                          alt={p1?.name}
-                          className="avatar w-11 h-11 sm:w-14 sm:h-14"
+                          alt=""
+                          className="avatar w-6 h-6 shrink-0"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
                             target.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${p1?.name}`;
                           }}
                         />
-                        {p1Won && (
-                          <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-accent-green/20 border border-accent-green/30 flex items-center justify-center">
-                            <span className="text-[8px] font-bold text-accent-green">W</span>
-                          </div>
-                        )}
                       </div>
-                      <span className="font-semibold text-text-primary text-xs sm:text-sm truncate w-full text-center px-1">
-                        {p1?.name || 'Unknown'}
-                      </span>
-                    </div>
-
-                    {/* Score */}
-                    <div className="mx-3 sm:mx-6 flex items-center gap-3 sm:gap-5">
-                      <span className={`text-2xl sm:text-4xl font-extrabold font-mono tracking-tight ${
-                        p1Won ? 'text-accent-green' : 'text-text-primary'
-                      }`}>
-                        {match.score1}
-                      </span>
-                      <div className="flex flex-col items-center gap-0.5">
-                        <div className="w-1 h-1 rounded-full bg-text-muted"></div>
-                        <div className="w-1 h-1 rounded-full bg-text-muted"></div>
+                      <div className="flex items-center gap-1.5 shrink-0 px-2">
+                        <span className={`text-sm font-bold font-mono tabular-nums w-5 text-right ${p1Won ? 'text-accent-green' : 'text-text-primary'}`}>
+                          {match.score1}
+                        </span>
+                        <span className="text-[10px] text-text-muted">–</span>
+                        <span className={`text-sm font-bold font-mono tabular-nums w-5 text-left ${p2Won ? 'text-accent-green' : 'text-text-primary'}`}>
+                          {match.score2}
+                        </span>
+                        <span className="text-[9px] text-text-muted ml-0.5">
+                          {new Date(match.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                        </span>
                       </div>
-                      <span className={`text-2xl sm:text-4xl font-extrabold font-mono tracking-tight ${
-                        p2Won ? 'text-accent-green' : 'text-text-primary'
-                      }`}>
-                        {match.score2}
-                      </span>
-                    </div>
-
-                    {/* Player 2 */}
-                    <div className={`flex-1 flex flex-col items-center gap-2 transition-opacity ${p2Won ? 'opacity-100' : isDraw ? 'opacity-80' : 'opacity-50'}`}>
-                      <div className="relative">
+                      <div className={`flex-1 min-w-0 flex items-center gap-2 justify-start ${p2Won ? 'opacity-100' : isDraw ? 'opacity-80' : 'opacity-50'}`}>
                         <img
                           src={p2?.avatarUrl}
-                          alt={p2?.name}
-                          className="avatar w-11 h-11 sm:w-14 sm:h-14"
+                          alt=""
+                          className="avatar w-6 h-6 shrink-0"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
                             target.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${p2?.name}`;
                           }}
                         />
-                        {p2Won && (
-                          <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-accent-green/20 border border-accent-green/30 flex items-center justify-center">
-                            <span className="text-[8px] font-bold text-accent-green">W</span>
-                          </div>
-                        )}
+                        <span className="text-[10px] sm:text-[11px] font-medium text-text-primary truncate text-left">
+                          {p2?.name || 'Unknown'}
+                        </span>
                       </div>
-                      <span className="font-semibold text-text-primary text-xs sm:text-sm truncate w-full text-center px-1">
-                        {p2?.name || 'Unknown'}
-                      </span>
+                      {match.commentary && (
+                        <span className="sr-only">{match.commentary}</span>
+                      )}
                     </div>
-                  </div>
-
-                  {/* Commentary */}
-                  {match.commentary && (
-                    <div className="mt-4 pt-4 border-t border-glass-border">
-                      <p className="text-xs sm:text-sm text-text-secondary italic leading-relaxed font-medium">
-                        "{match.commentary}"
-                      </p>
-                    </div>
-                  )}
-                </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
     </div>
