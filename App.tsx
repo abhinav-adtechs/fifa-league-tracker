@@ -7,11 +7,12 @@ import { MatchList } from './components/MatchList';
 import { PlayerManager } from './components/PlayerManager';
 import { MatchForm } from './components/MatchForm';
 import { Dashboard } from './components/Dashboard';
+import { MyPerformance } from './components/MyPerformance';
 import { Login } from './components/Login';
 import { LoginDetails } from './components/LoginDetails';
 import { db } from './services/storage';
 import { auth, Admin } from './services/auth';
-import { Trophy, Users, History, PlusCircle, LayoutDashboard, Lock, Zap, ChevronRight } from 'lucide-react';
+import { Trophy, Users, History, PlusCircle, LayoutDashboard, Lock, Zap, ChevronRight, User } from 'lucide-react';
 
 const App: React.FC = () => {
   const [players, setPlayers] = useState<Player[]>([]);
@@ -114,6 +115,7 @@ const App: React.FC = () => {
   const tabs = [
     { id: Tab.STANDINGS, label: 'Table', icon: Trophy },
     { id: Tab.MATCHES, label: 'Matches', icon: History },
+    { id: Tab.MY_PERFORMANCE, label: 'My Performance', icon: User },
     { id: Tab.DASHBOARD, label: 'Stats', icon: LayoutDashboard },
     { id: Tab.PLAYERS, label: 'Squad', icon: Users },
     { id: Tab.LOGIN, label: 'Admin', icon: Lock },
@@ -259,6 +261,13 @@ const App: React.FC = () => {
             />
           )}
           {activeTab === Tab.MATCHES && <MatchList matches={matches} players={playersWithStats} />}
+          {activeTab === Tab.MY_PERFORMANCE && (
+            <MyPerformance
+              players={playersWithStats}
+              matches={matches}
+              currentAdmin={currentAdmin}
+            />
+          )}
           {activeTab === Tab.DASHBOARD && <Dashboard players={playersWithStats} matches={matches} />}
           {activeTab === Tab.PLAYERS && (
             <PlayerManager players={playersWithStats} onAddPlayer={handleAddPlayer} onDeletePlayer={handleDeletePlayer} />
