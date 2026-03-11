@@ -1,5 +1,6 @@
 import UIKit
 import Capacitor
+import WebKit
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -13,6 +14,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Initialize the Capacitor bridge view controller
         let bridge = CAPBridgeViewController()
         
+        // Configure the bridge to respect safe area insets
+        bridge.view.backgroundColor = .black
+        
+        // Inject safe area CSS with multiple attempts to ensure it's applied
+        for delay in [0.3, 0.8, 1.5] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak bridge] in
+                self.injectSafeAreaStyles(into: bridge)
+            }
+        }
+        
         // Set as the root view controller
         window?.rootViewController = bridge
         
@@ -20,6 +31,73 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         window?.makeKeyAndVisible()
         
         return true
+    }
+    
+    private func injectSafeAreaStyles(into bridge: CAPBridgeViewController?) {
+        guard let webView = bridge?.webView else {
+            print("⚠️ WebView not available yet")
+            return
+        }
+        
+        let cssInjection = """
+        (function() {
+            console.log('🔧 Injecting safe area styles...');
+            
+            // Ensure viewport-fit=cover is set FIRST
+            var meta = document.querySelector('meta[name="viewport"]');
+            if (meta) {
+                var content = meta.getAttribute('content');
+                if (content && !content.includes('viewport-fit')) {
+                    meta.setAttribute('content', content + ', viewport-fit=cover');
+                    console.log('✅ Added viewport-fit=cover to meta tag');
+                }
+            } else {
+                // Create meta tag if it doesn't exist
+                var newMeta = document.createElement('meta');
+                newMeta.name = 'viewport';
+                newMeta.content = 'viewport-fit=cover, width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no';
+                document.head.appendChild(newMeta);
+                console.log('✅ Created new viewport meta tag');
+            }
+            
+            // Remove any existing safe-area style to avoid duplicates
+            var existingStyle = document.getElementById('safe-area-insets-style');
+            if (existingStyle) {
+                existingStyle.remove();
+            }
+            
+            // Inject CSS for safe area insets
+            var style = document.createElement('style');
+            style.id = 'safe-area-insets-style';
+            style.innerHTML = `
+                :root {
+                    --safe-area-inset-top: env(safe-area-inset-top);
+                    --safe-area-inset-bottom: env(safe-area-inset-bottom);
+                }
+                body {
+                    padding-top: env(safe-area-inset-top) !important;
+                    padding-bottom: env(safe-area-inset-bottom) !important;
+                    box-sizing: border-box !important;
+                }
+                /* Also apply to common container elements if body padding doesn't work */
+                body > * {
+                    margin-top: 0 !important;
+                }
+            `;
+            document.head.appendChild(style);
+            console.log('✅ Safe area styles injected');
+            
+            return 'Safe area styles applied';
+        })();
+        """
+        
+        webView.evaluateJavaScript(cssInjection) { result, error in
+            if let error = error {
+                print("❌ Error injecting styles: \(error.localizedDescription)")
+            } else {
+                print("✅ Successfully injected safe area styles: \(result ?? "no result")")
+            }
+        }
     }
 
     func applicationWillResignActive(_ application: UIApplication) {

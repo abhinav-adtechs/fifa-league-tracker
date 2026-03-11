@@ -1,11 +1,13 @@
 import React from 'react';
-import { Player } from '../types';
+import { Player, Match } from '../types';
 import type { StandingsView } from '../types';
 import { getSortedByView, getNormalisedScoreDisplay } from '../utils/standings';
 import { Trophy, Calculator, Crown, Medal, Award, LayoutList } from 'lucide-react';
+import { RankProjection } from './RankProjection';
 
 interface StandingsProps {
   players: Player[];
+  matches: Match[];
   /** Current standings view (controlled from parent for hero sync). */
   view?: StandingsView;
   /** Called when user switches tab so parent can update hero leader. */
@@ -20,6 +22,7 @@ const STANDINGS_VIEWS: { id: StandingsView; label: string; icon: typeof Trophy }
 
 export const Standings: React.FC<StandingsProps> = ({
   players,
+  matches,
   view: controlledView,
   onViewChange,
 }) => {
@@ -103,7 +106,7 @@ export const Standings: React.FC<StandingsProps> = ({
         </div>
       </div>
 
-      {/* Table */}
+      {/* Standings Table */}
       <div className="glass-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left data-table">
@@ -203,6 +206,9 @@ export const Standings: React.FC<StandingsProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Promotion Path */}
+      <RankProjection players={players} matches={matches} view={view} />
     </div>
   );
 };
