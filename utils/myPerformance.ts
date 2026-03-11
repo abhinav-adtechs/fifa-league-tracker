@@ -16,6 +16,8 @@ export interface MyPerformanceStats {
   biggestLossScore: string | null;
   biggestWinMargin: number;
   biggestLossMargin: number;
+  biggestWinOpponentId: string | null;
+  biggestLossOpponentId: string | null;
   matchesChronological: Match[];
 }
 
@@ -45,12 +47,16 @@ export function computeMyPerformance(playerId: string, matches: Match[]): MyPerf
     biggestLossMargin = 0;
   let biggestWinScore: string | null = null,
     biggestLossScore: string | null = null;
+  let biggestWinOpponentId: string | null = null,
+    biggestLossOpponentId: string | null = null;
   const form: ('W' | 'D' | 'L')[] = [];
 
   for (const m of matchesChronological) {
     const { myScore, theirScore } = getScores(m, playerId);
     gf += myScore;
     ga += theirScore;
+
+    const opponentId = m.player1Id === playerId ? m.player2Id : m.player1Id;
 
     if (myScore > theirScore) {
       wins++;
@@ -59,6 +65,7 @@ export function computeMyPerformance(playerId: string, matches: Match[]): MyPerf
       if (margin > biggestWinMargin) {
         biggestWinMargin = margin;
         biggestWinScore = `${myScore}-${theirScore}`;
+        biggestWinOpponentId = opponentId;
       }
     } else if (myScore < theirScore) {
       losses++;
@@ -67,6 +74,7 @@ export function computeMyPerformance(playerId: string, matches: Match[]): MyPerf
       if (margin > biggestLossMargin) {
         biggestLossMargin = margin;
         biggestLossScore = `${myScore}-${theirScore}`; // my score - their score (e.g. 1-5)
+        biggestLossOpponentId = opponentId;
       }
     } else {
       draws++;
@@ -111,6 +119,8 @@ export function computeMyPerformance(playerId: string, matches: Match[]): MyPerf
     biggestLossScore,
     biggestWinMargin,
     biggestLossMargin,
+    biggestWinOpponentId,
+    biggestLossOpponentId,
     matchesChronological,
   };
 }

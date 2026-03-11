@@ -139,7 +139,7 @@ const App: React.FC = () => {
               <div className="relative group">
                 <div className="absolute -inset-1 bg-gradient-to-r from-accent-green/20 to-accent-gold/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                 <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-glass-medium border border-glass-border flex items-center justify-center overflow-hidden">
-                  <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-accent-green" />
+                  <img src="/fc26-logo.svg" alt="FC26" className="w-6 h-6 sm:w-7 sm:h-7" />
                 </div>
               </div>
               <div className="flex items-center gap-1.5">

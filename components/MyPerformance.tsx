@@ -291,6 +291,11 @@ export const MyPerformance: React.FC<MyPerformanceProps> = ({
                 <div className="text-lg font-bold text-accent-green font-mono mt-0.5">
                   {stats.biggestWinScore ?? '—'}
                 </div>
+                {stats.biggestWinOpponentId && (
+                  <div className="text-[11px] text-text-muted mt-0.5">
+                    vs {players.find(p => p.id === stats.biggestWinOpponentId)?.name ?? 'Unknown'}
+                  </div>
+                )}
               </div>
             </div>
             <div className="glass-card p-4 flex items-center gap-4">
@@ -304,6 +309,11 @@ export const MyPerformance: React.FC<MyPerformanceProps> = ({
                 <div className="text-lg font-bold text-accent-red font-mono mt-0.5">
                   {stats.biggestLossScore ?? '—'}
                 </div>
+                {stats.biggestLossOpponentId && (
+                  <div className="text-[11px] text-text-muted mt-0.5">
+                    vs {players.find(p => p.id === stats.biggestLossOpponentId)?.name ?? 'Unknown'}
+                  </div>
+                )}
               </div>
             </div>
           </div>
