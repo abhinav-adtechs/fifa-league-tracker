@@ -114,7 +114,7 @@ export const Standings: React.FC<StandingsProps> = ({
               <tr>
                 <th className="w-12 text-center">#</th>
                 <th className="min-w-[140px]">Player</th>
-                <th className="text-center">MP</th>
+                <th className="text-center">PL</th>
                 {view === 'NORMALISED' && <th className="text-center text-accent-gold">Norm</th>}
                 {view === 'PPG' && <th className="text-center text-accent-gold">PPG</th>}
                 <th className="text-center hidden sm:table-cell">W</th>

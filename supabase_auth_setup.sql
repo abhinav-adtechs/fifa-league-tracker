@@ -28,13 +28,13 @@ CREATE TABLE IF NOT EXISTS admin_login_audit (
   user_agent TEXT
 );
 
--- Step 4: Insert 4 admin passwords with memorable 8-character passwords
--- These passwords are hashed using bcrypt
+-- Step 4: Insert admin passwords (bcrypt via pgcrypto)
 INSERT INTO admin_passwords (name, password_hash) VALUES
   ('manan',   crypt('football', gen_salt('bf'))),
   ('abhinav', crypt('champion', gen_salt('bf'))),
   ('sagar',   crypt('defender', gen_salt('bf'))),
-  ('karan',   crypt('midfield', gen_salt('bf')));
+  ('karan',   crypt('midfield', gen_salt('bf'))),
+  ('mukul',   crypt('killerindiafc', gen_salt('bf')));
 
 -- Step 5: Create RPC function to verify password
 -- Drop function if it exists first
@@ -88,6 +88,7 @@ GROUP BY admin_name_snapshot;
 -- abhinav: champion
 -- sagar:   defender
 -- karan:   midfield
+-- mukul:   killerindiafc
 -- ============================================
 -- After running this script, DELETE or SECURE this file!
 -- ============================================
