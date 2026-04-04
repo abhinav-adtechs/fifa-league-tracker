@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Player } from '../types';
-import { Plus, Trash2, User, ShieldCheck, UserPlus } from 'lucide-react';
+import React, { useState } from "react";
+import { Player } from "../types";
+import { Plus, Trash2, User, ShieldCheck, UserPlus } from "lucide-react";
 
 interface PlayerManagerProps {
   players: Player[];
@@ -8,14 +8,18 @@ interface PlayerManagerProps {
   onDeletePlayer: (id: string) => void;
 }
 
-export const PlayerManager: React.FC<PlayerManagerProps> = ({ players, onAddPlayer, onDeletePlayer }) => {
-  const [newName, setNewName] = useState('');
+export const PlayerManager: React.FC<PlayerManagerProps> = ({
+  players,
+  onAddPlayer,
+  onDeletePlayer,
+}) => {
+  const [newName, setNewName] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (newName.trim()) {
       onAddPlayer(newName.trim());
-      setNewName('');
+      setNewName("");
     }
   };
 
@@ -32,12 +36,19 @@ export const PlayerManager: React.FC<PlayerManagerProps> = ({ players, onAddPlay
             <UserPlus className="w-4 h-4 text-accent-green" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-text-primary">New Signing</h3>
-            <p className="text-[11px] text-text-muted">Add a new player to the squad</p>
+            <h3 className="text-base font-bold text-text-primary">
+              New Signing
+            </h3>
+            <p className="text-[11px] text-text-muted">
+              Add a new player to the squad
+            </p>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 relative">
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-col sm:flex-row gap-3 relative"
+        >
           <input
             type="text"
             value={newName}
@@ -63,7 +74,10 @@ export const PlayerManager: React.FC<PlayerManagerProps> = ({ players, onAddPlay
           </div>
           <div>
             <h3 className="text-sm font-bold text-text-primary">Squad List</h3>
-            <p className="text-[10px] text-text-muted">{players.length} player{players.length !== 1 ? 's' : ''} registered</p>
+            <p className="text-[10px] text-text-muted">
+              {players.length} player{players.length !== 1 ? "s" : ""}{" "}
+              registered
+            </p>
           </div>
         </div>
 
@@ -71,7 +85,9 @@ export const PlayerManager: React.FC<PlayerManagerProps> = ({ players, onAddPlay
           {players.length === 0 ? (
             <div className="text-center py-10">
               <User className="w-8 h-8 text-text-muted mx-auto mb-2 opacity-40" />
-              <p className="text-sm text-text-muted">No players registered yet</p>
+              <p className="text-sm text-text-muted">
+                No players registered yet
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -91,9 +107,13 @@ export const PlayerManager: React.FC<PlayerManagerProps> = ({ players, onAddPlay
                       }}
                     />
                     <div className="min-w-0">
-                      <span className="font-semibold text-text-primary text-sm truncate block">{player.name}</span>
+                      <span className="font-semibold text-text-primary text-sm truncate block">
+                        {player.name}
+                      </span>
                       {player.played > 0 && (
-                        <span className="text-[10px] text-text-muted">{player.played} matches</span>
+                        <span className="text-[10px] text-text-muted">
+                          {player.played} matches
+                        </span>
                       )}
                     </div>
                   </div>
@@ -108,7 +128,9 @@ export const PlayerManager: React.FC<PlayerManagerProps> = ({ players, onAddPlay
                   ) : (
                     <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-accent-green/8 border border-accent-green/15 shrink-0">
                       <ShieldCheck className="w-3 h-3 text-accent-green" />
-                      <span className="text-[9px] font-semibold text-accent-green uppercase tracking-wider">Active</span>
+                      <span className="text-[9px] font-semibold text-accent-green uppercase tracking-wider">
+                        Active
+                      </span>
                     </div>
                   )}
                 </div>
@@ -124,9 +146,12 @@ export const PlayerManager: React.FC<PlayerManagerProps> = ({ players, onAddPlay
           <ShieldCheck className="w-4 h-4 text-accent-blue" />
         </div>
         <div>
-          <h4 className="text-xs font-semibold text-accent-blue">Cloud Storage</h4>
+          <h4 className="text-xs font-semibold text-accent-blue">
+            Cloud Storage
+          </h4>
           <p className="text-[11px] text-text-muted mt-1 leading-relaxed">
-            All data is synced to the cloud via Supabase. Changes are reflected in real-time across all devices.
+            All data is synced to the cloud via Supabase. Changes are reflected
+            in real-time across all devices.
           </p>
         </div>
       </div>

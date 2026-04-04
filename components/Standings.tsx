@@ -1,9 +1,17 @@
-import React from 'react';
-import { Player, Match } from '../types';
-import type { StandingsView } from '../types';
-import { getSortedByView, getNormalisedScoreDisplay } from '../utils/standings';
-import { Trophy, Calculator, Crown, Medal, Award, LayoutList } from 'lucide-react';
-import { RankProjection } from './RankProjection';
+import React from "react";
+import { Player, Match } from "../types";
+import type { StandingsView } from "../types";
+import { getSortedByView, getNormalisedScoreDisplay } from "../utils/standings";
+import { getDisplayTeamName } from "../utils/playerDisplay";
+import {
+  Trophy,
+  Calculator,
+  Crown,
+  Medal,
+  Award,
+  LayoutList,
+} from "lucide-react";
+import { RankProjection } from "./RankProjection";
 
 interface StandingsProps {
   players: Player[];
@@ -12,12 +20,26 @@ interface StandingsProps {
   view?: StandingsView;
   /** Called when user switches tab so parent can update hero leader. */
   onViewChange?: (view: StandingsView) => void;
+  hideViewControls?: boolean;
+  hideProjection?: boolean;
+  /** Classic points/GD/GF table only (no Normalised or PPG modes). */
+  tableOnly?: boolean;
+  /** League + knockout: explain qualification and mark projected qualifiers. */
+  leagueKnockoutQualifiers?: {
+    slots: number;
+    qualifiedIds: Set<string>;
+    multiGroup: boolean;
+  };
 }
 
-const STANDINGS_VIEWS: { id: StandingsView; label: string; icon: typeof Trophy }[] = [
-  { id: 'NORMALISED', label: 'Normalised', icon: Calculator },
-  { id: 'PPG', label: 'PPG', icon: LayoutList },
-  { id: 'TABLE', label: 'Table', icon: Trophy },
+const STANDINGS_VIEWS: {
+  id: StandingsView;
+  label: string;
+  icon: typeof Trophy;
+}[] = [
+  { id: "NORMALISED", label: "Normalised", icon: Calculator },
+  { id: "PPG", label: "PPG", icon: LayoutList },
+  { id: "TABLE", label: "Table", icon: Trophy },
 ];
 
 export const Standings: React.FC<StandingsProps> = ({
@@ -25,15 +47,21 @@ export const Standings: React.FC<StandingsProps> = ({
   matches,
   view: controlledView,
   onViewChange,
+  hideViewControls = false,
+  hideProjection = false,
+  tableOnly = false,
+  leagueKnockoutQualifiers,
 }) => {
-  const [internalView, setInternalView] = React.useState<StandingsView>('NORMALISED');
+  const [internalView, setInternalView] =
+    React.useState<StandingsView>("NORMALISED");
   const view = controlledView ?? internalView;
   const setView = (v: StandingsView) => {
     onViewChange?.(v);
     if (controlledView == null) setInternalView(v);
   };
 
-  const sortedPlayers = getSortedByView(players, view);
+  const effectiveView: StandingsView = tableOnly ? "TABLE" : view;
+  const sortedPlayers = getSortedByView(players, effectiveView);
 
   if (players.length === 0) {
     return (
@@ -41,73 +69,120 @@ export const Standings: React.FC<StandingsProps> = ({
         <div className="w-16 h-16 rounded-2xl bg-glass-light border border-glass-border mx-auto mb-5 flex items-center justify-center">
           <Trophy className="w-8 h-8 text-text-muted" />
         </div>
-        <p className="text-text-secondary text-lg font-semibold">League not started</p>
-        <p className="text-sm text-text-muted mt-1">Add players to begin the season.</p>
+        <p className="text-text-secondary text-lg font-semibold">
+          League not started
+        </p>
+        <p className="text-sm text-text-muted mt-1">
+          Add players to begin the season.
+        </p>
       </div>
     );
   }
 
   const RankBadge = ({ index }: { index: number }) => {
-    if (index === 0) return (
-      <div className="w-7 h-7 rounded-lg rank-1 flex items-center justify-center">
-        <Crown className="w-3.5 h-3.5" />
-      </div>
-    );
-    if (index === 1) return (
-      <div className="w-7 h-7 rounded-lg rank-2 flex items-center justify-center">
-        <Medal className="w-3.5 h-3.5" />
-      </div>
-    );
-    if (index === 2) return (
-      <div className="w-7 h-7 rounded-lg rank-3 flex items-center justify-center">
-        <Award className="w-3.5 h-3.5" />
-      </div>
-    );
+    if (leagueKnockoutQualifiers != null) {
+      return (
+        <div className="w-7 h-7 rounded-lg bg-glass-light flex items-center justify-center">
+          <span className="text-xs font-bold text-text-muted font-mono">
+            {index + 1}
+          </span>
+        </div>
+      );
+    }
+
+    if (index === 0)
+      return (
+        <div className="w-7 h-7 rounded-lg rank-1 flex items-center justify-center">
+          <Crown className="w-3.5 h-3.5" />
+        </div>
+      );
+    if (index === 1)
+      return (
+        <div className="w-7 h-7 rounded-lg rank-2 flex items-center justify-center">
+          <Medal className="w-3.5 h-3.5" />
+        </div>
+      );
+    if (index === 2)
+      return (
+        <div className="w-7 h-7 rounded-lg rank-3 flex items-center justify-center">
+          <Award className="w-3.5 h-3.5" />
+        </div>
+      );
     return (
       <div className="w-7 h-7 rounded-lg bg-glass-light flex items-center justify-center">
-        <span className="text-xs font-bold text-text-muted font-mono">{index + 1}</span>
+        <span className="text-xs font-bold text-text-muted font-mono">
+          {index + 1}
+        </span>
       </div>
     );
   };
 
   return (
     <div className="space-y-4">
-      {/* 3 Tabs on the left + formula descriptions below */}
-      <div className="flex flex-col gap-3">
-        <div className="flex justify-start">
-          <div className="glass-card p-1 inline-flex gap-1">
-            {STANDINGS_VIEWS.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                onClick={() => setView(id)}
-                className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                  view === id
-                    ? id === 'NORMALISED'
-                      ? 'bg-accent-gold/15 text-accent-gold border border-accent-gold/20'
-                      : id === 'PPG'
-                        ? 'bg-accent-gold/15 text-accent-gold border border-accent-gold/20'
-                        : 'bg-accent-green/15 text-accent-green border border-accent-green/20'
-                    : 'text-text-muted hover:text-text-secondary'
-                }`}
-              >
-                <Icon className="w-3 h-3" />
-                <span>{label}</span>
-              </button>
-            ))}
+      {/* Tabs + formula descriptions (hidden for classic league table only) */}
+      {!hideViewControls && !tableOnly && (
+        <div className="flex flex-col gap-3">
+          <div className="flex justify-start">
+            <div className="glass-card p-1 inline-flex gap-1">
+              {STANDINGS_VIEWS.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => setView(id)}
+                  className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                    effectiveView === id
+                      ? id === "NORMALISED"
+                        ? "bg-accent-gold/15 text-accent-gold border border-accent-gold/20"
+                        : id === "PPG"
+                          ? "bg-accent-gold/15 text-accent-gold border border-accent-gold/20"
+                          : "bg-accent-green/15 text-accent-green border border-accent-green/20"
+                      : "text-text-muted hover:text-text-secondary"
+                  }`}
+                >
+                  <Icon className="w-3 h-3" />
+                  <span>{label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="text-[11px] text-text-muted leading-relaxed space-y-1.5 max-w-2xl">
+            <p>
+              <span className="font-semibold text-accent-gold">
+                Normalised:
+              </span>{" "}
+              Points ÷ (Matches played + 2), then + a small bonus for goal
+              difference per game. Favours consistency over many games and
+              rewards both results and dominance.
+            </p>
+            <p>
+              <span className="font-semibold text-accent-gold">PPG:</span>{" "}
+              Points ÷ Matches played. Raw average points per game (win = 3,
+              draw = 1, loss = 0).
+            </p>
           </div>
         </div>
-        <div className="text-[11px] text-text-muted leading-relaxed space-y-1.5 max-w-2xl">
-          <p>
-            <span className="font-semibold text-accent-gold">Normalised:</span> Points ÷ (Matches played + 2), then + a small bonus for goal difference per game. Favours consistency over many games and rewards both results and dominance.
-          </p>
-          <p>
-            <span className="font-semibold text-accent-gold">PPG:</span> Points ÷ Matches played. Raw average points per game (win = 3, draw = 1, loss = 0).
-          </p>
-        </div>
-      </div>
+      )}
 
       {/* Standings Table */}
       <div className="glass-card overflow-hidden">
+        {leagueKnockoutQualifiers && !leagueKnockoutQualifiers.multiGroup && (
+          <div className="px-3 py-2.5 sm:px-4 border-b border-glass-border bg-glass-light/40 text-[11px] text-text-secondary leading-relaxed">
+            {leagueKnockoutQualifiers.slots === 1 ? (
+              <>
+                The{" "}
+                <span className="font-semibold text-text-primary">top player</span>{" "}
+                in this table advances to the knockout bracket.
+              </>
+            ) : (
+              <>
+                The{" "}
+                <span className="font-semibold text-text-primary">
+                  top {leagueKnockoutQualifiers.slots}
+                </span>{" "}
+                in this table advance to the knockout bracket.
+              </>
+            )}
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full text-left data-table">
             <thead>
@@ -115,20 +190,32 @@ export const Standings: React.FC<StandingsProps> = ({
                 <th className="w-12 text-center">#</th>
                 <th className="min-w-[140px]">Player</th>
                 <th className="text-center">PL</th>
-                {view === 'NORMALISED' && <th className="text-center text-accent-gold">Norm</th>}
-                {view === 'PPG' && <th className="text-center text-accent-gold">PPG</th>}
+                {effectiveView === "NORMALISED" && (
+                  <th className="text-center text-accent-gold">Norm</th>
+                )}
+                {effectiveView === "PPG" && (
+                  <th className="text-center text-accent-gold">PPG</th>
+                )}
                 <th className="text-center hidden sm:table-cell">W</th>
                 <th className="text-center hidden sm:table-cell">D</th>
                 <th className="text-center hidden sm:table-cell">L</th>
                 <th className="text-center hidden md:table-cell">GD</th>
-                {view === 'TABLE' && <th className="text-center text-accent-green">PTS</th>}
+                {effectiveView === "TABLE" && (
+                  <th className="text-center text-accent-green">PTS</th>
+                )}
                 <th className="text-center">Form</th>
               </tr>
             </thead>
             <tbody>
               {sortedPlayers.map((player, index) => {
-                const ppg = player.played > 0 ? (player.points / player.played).toFixed(2) : '0.00';
+                const ppg =
+                  player.played > 0
+                    ? (player.points / player.played).toFixed(2)
+                    : "0.00";
                 const norm = getNormalisedScoreDisplay(player);
+                const displayTeam = getDisplayTeamName(player.teamName);
+                const isProjectedQualifier =
+                  leagueKnockoutQualifiers?.qualifiedIds.has(player.id) ?? false;
                 return (
                   <tr key={player.id} className="group">
                     <td className="text-center">
@@ -149,33 +236,69 @@ export const Standings: React.FC<StandingsProps> = ({
                           <div className="font-semibold text-text-primary text-sm group-hover:text-accent-green transition-colors truncate">
                             {player.name}
                           </div>
-                          {index === 0 && (
-                            <div className="text-[9px] font-bold text-accent-gold uppercase tracking-widest mt-0.5">Leader</div>
+                          {displayTeam && (
+                            <div className="text-[10px] text-text-muted truncate mt-0.5">
+                              {displayTeam}
+                            </div>
+                          )}
+                          {leagueKnockoutQualifiers ? (
+                            isProjectedQualifier && (
+                              <div className="text-[9px] font-bold text-accent-gold uppercase tracking-widest mt-0.5">
+                                Bracket
+                              </div>
+                            )
+                          ) : (
+                            index === 0 && (
+                              <div className="text-[9px] font-bold text-accent-gold uppercase tracking-widest mt-0.5">
+                                Leader
+                              </div>
+                            )
                           )}
                         </div>
                       </div>
                     </td>
-                    <td className="text-center font-mono font-medium text-text-secondary text-sm">{player.played}</td>
-
-                    {view === 'NORMALISED' && (
-                      <td className="text-center font-mono font-bold text-lg text-accent-gold">{norm}</td>
-                    )}
-                    {view === 'PPG' && (
-                      <td className="text-center font-mono font-bold text-lg text-accent-gold">{ppg}</td>
-                    )}
-
-                    <td className="text-center font-mono font-medium text-text-secondary text-sm hidden sm:table-cell">{player.wins}</td>
-                    <td className="text-center font-mono font-medium text-text-secondary text-sm hidden sm:table-cell">{player.draws}</td>
-                    <td className="text-center font-mono font-medium text-text-secondary text-sm hidden sm:table-cell">{player.losses}</td>
-
-                    <td className={`text-center font-mono font-semibold text-sm hidden md:table-cell ${
-                      player.gd > 0 ? 'text-accent-green' : player.gd < 0 ? 'text-accent-red' : 'text-text-muted'
-                    }`}>
-                      {player.gd > 0 ? '+' : ''}{player.gd}
+                    <td className="text-center font-mono font-medium text-text-secondary text-sm">
+                      {player.played}
                     </td>
 
-                    {view === 'TABLE' && (
-                      <td className="text-center font-mono font-bold text-lg text-accent-green">{player.points}</td>
+                    {effectiveView === "NORMALISED" && (
+                      <td className="text-center font-mono font-bold text-lg text-accent-gold">
+                        {norm}
+                      </td>
+                    )}
+                    {effectiveView === "PPG" && (
+                      <td className="text-center font-mono font-bold text-lg text-accent-gold">
+                        {ppg}
+                      </td>
+                    )}
+
+                    <td className="text-center font-mono font-medium text-text-secondary text-sm hidden sm:table-cell">
+                      {player.wins}
+                    </td>
+                    <td className="text-center font-mono font-medium text-text-secondary text-sm hidden sm:table-cell">
+                      {player.draws}
+                    </td>
+                    <td className="text-center font-mono font-medium text-text-secondary text-sm hidden sm:table-cell">
+                      {player.losses}
+                    </td>
+
+                    <td
+                      className={`text-center font-mono font-semibold text-sm hidden md:table-cell ${
+                        player.gd > 0
+                          ? "text-accent-green"
+                          : player.gd < 0
+                            ? "text-accent-red"
+                            : "text-text-muted"
+                      }`}
+                    >
+                      {player.gd > 0 ? "+" : ""}
+                      {player.gd}
+                    </td>
+
+                    {effectiveView === "TABLE" && (
+                      <td className="text-center font-mono font-bold text-lg text-accent-green">
+                        {player.points}
+                      </td>
                     )}
 
                     <td>
@@ -184,11 +307,11 @@ export const Standings: React.FC<StandingsProps> = ({
                           <div
                             key={i}
                             className={`result-badge ${
-                              result === 'W'
-                                ? 'bg-accent-green/15 text-accent-green border border-accent-green/20'
-                                : result === 'D'
-                                  ? 'bg-glass-strong text-text-secondary border border-glass-border'
-                                  : 'bg-accent-red/15 text-accent-red border border-accent-red/20'
+                              result === "W"
+                                ? "bg-accent-green/15 text-accent-green border border-accent-green/20"
+                                : result === "D"
+                                  ? "bg-glass-strong text-text-secondary border border-glass-border"
+                                  : "bg-accent-red/15 text-accent-red border border-accent-red/20"
                             }`}
                           >
                             {result}
@@ -208,7 +331,13 @@ export const Standings: React.FC<StandingsProps> = ({
       </div>
 
       {/* Promotion Path */}
-      <RankProjection players={players} matches={matches} view={view} />
+      {!hideProjection && (
+        <RankProjection
+          players={players}
+          matches={matches}
+          view={effectiveView}
+        />
+      )}
     </div>
   );
 };

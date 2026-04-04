@@ -1,23 +1,23 @@
-import { Match, PlatformState, Player, PlayerProfile } from '../types';
-import { supabase } from './supabaseClient';
+import { Match, PlatformState, Player, PlayerProfile } from "../types";
+import { supabase } from "./supabaseClient";
 
-const STATE_ID = 'default';
-const PLATFORM_KEY = 'fifa_platform_state';
-const PLAYER_POOL_KEY = 'fifa_player_pool';
+const STATE_ID = "default";
+const PLATFORM_KEY = "fifa_platform_state";
+const PLAYER_POOL_KEY = "fifa_player_pool";
 
 type PlatformEnvelope = PlatformState & { version: number };
 
 function canUseLocalStorage() {
-  return typeof localStorage !== 'undefined';
+  return typeof localStorage !== "undefined";
 }
 
 function isPlatformEnvelope(value: unknown): value is PlatformEnvelope {
   return Boolean(
     value &&
-    typeof value === 'object' &&
-    'version' in value &&
-    'tournaments' in value &&
-    'playerPool' in value
+    typeof value === "object" &&
+    "version" in value &&
+    "tournaments" in value &&
+    "playerPool" in value,
   );
 }
 
@@ -29,13 +29,13 @@ async function readPlayersState(): Promise<unknown> {
   }
 
   const { data, error } = await supabase
-    .from('players_state')
-    .select('players')
-    .eq('id', STATE_ID)
+    .from("players_state")
+    .select("players")
+    .eq("id", STATE_ID)
     .maybeSingle();
 
   if (error) {
-    console.error('DB Error (readPlayersState)', error);
+    console.error("DB Error (readPlayersState)", error);
     return null;
   }
 
@@ -50,13 +50,13 @@ async function readMatchesState(): Promise<unknown> {
   }
 
   const { data, error } = await supabase
-    .from('matches_state')
-    .select('matches')
-    .eq('id', STATE_ID)
+    .from("matches_state")
+    .select("matches")
+    .eq("id", STATE_ID)
     .maybeSingle();
 
   if (error) {
-    console.error('DB Error (readMatchesState)', error);
+    console.error("DB Error (readMatchesState)", error);
     return null;
   }
 
@@ -71,18 +71,16 @@ async function writePlayersState(playerPool: PlayerProfile[]): Promise<void> {
     return;
   }
 
-  const { error } = await supabase
-    .from('players_state')
-    .upsert(
-      {
-        id: STATE_ID,
-        players: playerPool,
-      },
-      { onConflict: 'id' }
-    );
+  const { error } = await supabase.from("players_state").upsert(
+    {
+      id: STATE_ID,
+      players: playerPool,
+    },
+    { onConflict: "id" },
+  );
 
   if (error) {
-    console.error('DB Error (writePlayersState)', error);
+    console.error("DB Error (writePlayersState)", error);
   }
 }
 
@@ -94,18 +92,16 @@ async function writeMatchesState(platform: PlatformState): Promise<void> {
     return;
   }
 
-  const { error } = await supabase
-    .from('matches_state')
-    .upsert(
-      {
-        id: STATE_ID,
-        matches: platform,
-      },
-      { onConflict: 'id' }
-    );
+  const { error } = await supabase.from("matches_state").upsert(
+    {
+      id: STATE_ID,
+      matches: platform,
+    },
+    { onConflict: "id" },
+  );
 
   if (error) {
-    console.error('DB Error (writeMatchesState)', error);
+    console.error("DB Error (writeMatchesState)", error);
   }
 }
 
@@ -129,11 +125,16 @@ export const db = {
     const rawPlayerPool = await readPlayersState();
     return {
       ...rawPlatform,
-      playerPool: Array.isArray(rawPlayerPool) ? (rawPlayerPool as PlayerProfile[]) : rawPlatform.playerPool,
+      playerPool: Array.isArray(rawPlayerPool)
+        ? (rawPlayerPool as PlayerProfile[])
+        : rawPlatform.playerPool,
     };
   },
 
   savePlatformState: async (platform: PlatformState): Promise<void> => {
-    await Promise.all([writePlayersState(platform.playerPool), writeMatchesState(platform)]);
+    await Promise.all([
+      writePlayersState(platform.playerPool),
+      writeMatchesState(platform),
+    ]);
   },
 };

@@ -1,7 +1,7 @@
-import { Capacitor } from '@capacitor/core';
-import { Preferences } from '@capacitor/preferences';
+import { Capacitor } from "@capacitor/core";
+import { Preferences } from "@capacitor/preferences";
 
-const KEY_PREFIX = 'fifa_';
+const KEY_PREFIX = "fifa_";
 
 /**
  * Cross-platform session storage: localStorage on web, Capacitor Preferences on iOS/native.
@@ -14,14 +14,16 @@ export const sessionStorage = {
       const { value } = await Preferences.get({ key: fullKey });
       return value;
     }
-    return typeof localStorage !== 'undefined' ? localStorage.getItem(fullKey) : null;
+    return typeof localStorage !== "undefined"
+      ? localStorage.getItem(fullKey)
+      : null;
   },
 
   async setItem(key: string, value: string): Promise<void> {
     const fullKey = KEY_PREFIX + key;
     if (Capacitor.isNativePlatform()) {
       await Preferences.set({ key: fullKey, value });
-    } else if (typeof localStorage !== 'undefined') {
+    } else if (typeof localStorage !== "undefined") {
       localStorage.setItem(fullKey, value);
     }
   },
@@ -30,7 +32,7 @@ export const sessionStorage = {
     const fullKey = KEY_PREFIX + key;
     if (Capacitor.isNativePlatform()) {
       await Preferences.remove({ key: fullKey });
-    } else if (typeof localStorage !== 'undefined') {
+    } else if (typeof localStorage !== "undefined") {
       localStorage.removeItem(fullKey);
     }
   },

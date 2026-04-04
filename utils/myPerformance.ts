@@ -1,4 +1,4 @@
-import { Match } from '../types';
+import { Match } from "../types";
 
 export interface MyPerformanceStats {
   played: number;
@@ -10,7 +10,7 @@ export interface MyPerformanceStats {
   gd: number;
   points: number;
   winRate: number; // 0–100
-  form: ('W' | 'D' | 'L')[];
+  form: ("W" | "D" | "L")[];
   streak: string; // e.g. 'W2' | 'L1' | 'D1'
   biggestWinScore: string | null; // e.g. '5-1' (my score - their score)
   biggestLossScore: string | null;
@@ -22,7 +22,10 @@ export interface MyPerformanceStats {
 }
 
 /** Get this player's score and opponent's score in a match (order: me, opponent). */
-function getScores(match: Match, playerId: string): { myScore: number; theirScore: number } {
+function getScores(
+  match: Match,
+  playerId: string,
+): { myScore: number; theirScore: number } {
   if (match.player1Id === playerId) {
     return { myScore: match.score1, theirScore: match.score2 };
   }
@@ -32,11 +35,16 @@ function getScores(match: Match, playerId: string): { myScore: number; theirScor
 /**
  * Compute full "my performance" stats for a single player from all their matches.
  */
-export function computeMyPerformance(playerId: string, matches: Match[]): MyPerformanceStats {
+export function computeMyPerformance(
+  playerId: string,
+  matches: Match[],
+): MyPerformanceStats {
   const myMatches = matches.filter(
-    m => m.player1Id === playerId || m.player2Id === playerId
+    (m) => m.player1Id === playerId || m.player2Id === playerId,
   );
-  const matchesChronological = [...myMatches].sort((a, b) => a.timestamp - b.timestamp);
+  const matchesChronological = [...myMatches].sort(
+    (a, b) => a.timestamp - b.timestamp,
+  );
 
   let wins = 0,
     draws = 0,
@@ -49,7 +57,7 @@ export function computeMyPerformance(playerId: string, matches: Match[]): MyPerf
     biggestLossScore: string | null = null;
   let biggestWinOpponentId: string | null = null,
     biggestLossOpponentId: string | null = null;
-  const form: ('W' | 'D' | 'L')[] = [];
+  const form: ("W" | "D" | "L")[] = [];
 
   for (const m of matchesChronological) {
     const { myScore, theirScore } = getScores(m, playerId);
@@ -60,7 +68,7 @@ export function computeMyPerformance(playerId: string, matches: Match[]): MyPerf
 
     if (myScore > theirScore) {
       wins++;
-      form.push('W');
+      form.push("W");
       const margin = myScore - theirScore;
       if (margin > biggestWinMargin) {
         biggestWinMargin = margin;
@@ -69,7 +77,7 @@ export function computeMyPerformance(playerId: string, matches: Match[]): MyPerf
       }
     } else if (myScore < theirScore) {
       losses++;
-      form.push('L');
+      form.push("L");
       const margin = theirScore - myScore;
       if (margin > biggestLossMargin) {
         biggestLossMargin = margin;
@@ -78,7 +86,7 @@ export function computeMyPerformance(playerId: string, matches: Match[]): MyPerf
       }
     } else {
       draws++;
-      form.push('D');
+      form.push("D");
     }
   }
 
@@ -88,10 +96,14 @@ export function computeMyPerformance(playerId: string, matches: Match[]): MyPerf
 
   // Current streak from most recent match
   let streakCount = 0;
-  let streakResult: 'W' | 'L' | 'D' | null = null;
+  let streakResult: "W" | "L" | "D" | null = null;
   for (let i = matchesChronological.length - 1; i >= 0; i--) {
-    const { myScore, theirScore } = getScores(matchesChronological[i], playerId);
-    const result: 'W' | 'L' | 'D' = myScore > theirScore ? 'W' : myScore < theirScore ? 'L' : 'D';
+    const { myScore, theirScore } = getScores(
+      matchesChronological[i],
+      playerId,
+    );
+    const result: "W" | "L" | "D" =
+      myScore > theirScore ? "W" : myScore < theirScore ? "L" : "D";
     if (streakResult == null) {
       streakResult = result;
       streakCount = 1;
@@ -101,7 +113,9 @@ export function computeMyPerformance(playerId: string, matches: Match[]): MyPerf
       break;
     }
   }
-  const streak = streakResult ? `${streakResult}${streakCount > 1 ? streakCount : ''}` : '-';
+  const streak = streakResult
+    ? `${streakResult}${streakCount > 1 ? streakCount : ""}`
+    : "-";
 
   return {
     played,
@@ -148,19 +162,19 @@ export interface DayResult {
 export function getCalendarHistogramData(
   playerId: string,
   matches: Match[],
-  lastNDays: number = 30
+  lastNDays: number = 30,
 ): DayResult[] {
   const now = Date.now();
   const dayMs = 24 * 60 * 60 * 1000;
   const myMatches = matches.filter(
-    m => m.player1Id === playerId || m.player2Id === playerId
+    (m) => m.player1Id === playerId || m.player2Id === playerId,
   );
 
   const out: DayResult[] = [];
   for (let i = lastNDays - 1; i >= 0; i--) {
     const t = now - i * dayMs;
     const key = getDayKey(t);
-    const dayMatches = myMatches.filter(m => getDayKey(m.timestamp) === key);
+    const dayMatches = myMatches.filter((m) => getDayKey(m.timestamp) === key);
 
     let wins = 0,
       draws = 0,
@@ -175,8 +189,12 @@ export function getCalendarHistogramData(
     const d = new Date(t);
     out.push({
       dateKey: key,
-      date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      fullLabel: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      date: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      fullLabel: d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }),
       wins,
       draws,
       losses,

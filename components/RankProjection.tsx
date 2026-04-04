@@ -1,9 +1,21 @@
-import React, { useState } from 'react';
-import { Player, Match } from '../types';
-import type { StandingsView } from '../types';
-import { getSortedByView, getNormalisedScore, getNormalisedScoreFromStats } from '../utils/standings';
-import { computeHeadToHead } from '../utils/headToHead';
-import { TrendingUp, ChevronDown, ChevronUp, ArrowRight, Swords, Zap, Users } from 'lucide-react';
+import React, { useState } from "react";
+import { Player, Match } from "../types";
+import type { StandingsView } from "../types";
+import {
+  getSortedByView,
+  getNormalisedScore,
+  getNormalisedScoreFromStats,
+} from "../utils/standings";
+import { computeHeadToHead } from "../utils/headToHead";
+import {
+  TrendingUp,
+  ChevronDown,
+  ChevronUp,
+  ArrowRight,
+  Swords,
+  Zap,
+  Users,
+} from "lucide-react";
 
 interface RankProjectionProps {
   players: Player[];
@@ -15,8 +27,8 @@ interface RankProjectionProps {
 
 function getScore(p: Player, view: StandingsView): number {
   if (p.played === 0) return 0;
-  if (view === 'NORMALISED') return getNormalisedScore(p);
-  if (view === 'PPG') return p.points / p.played;
+  if (view === "NORMALISED") return getNormalisedScore(p);
+  if (view === "PPG") return p.points / p.played;
   return p.points;
 }
 
@@ -24,22 +36,23 @@ function projectScore(
   played: number,
   points: number,
   gd: number,
-  view: StandingsView
+  view: StandingsView,
 ): number {
   if (played <= 0) return 0;
-  if (view === 'NORMALISED') return getNormalisedScoreFromStats(played, points, gd);
-  if (view === 'PPG') return points / played;
+  if (view === "NORMALISED")
+    return getNormalisedScoreFromStats(played, points, gd);
+  if (view === "PPG") return points / played;
   return points;
 }
 
 function formatScore(score: number, view: StandingsView): string {
-  return view === 'TABLE' ? score.toFixed(0) : score.toFixed(2);
+  return view === "TABLE" ? score.toFixed(0) : score.toFixed(2);
 }
 
 function scoreLabel(view: StandingsView): string {
-  if (view === 'NORMALISED') return 'Norm';
-  if (view === 'PPG') return 'PPG';
-  return 'PTS';
+  if (view === "NORMALISED") return "Norm";
+  if (view === "PPG") return "PPG";
+  return "PTS";
 }
 
 // ─── Route calculations ───────────────────────────────────────────────────────
@@ -52,14 +65,14 @@ function winsVsAnyone(
   current: Player,
   frozenTargetScore: number,
   avgGdPerWin: number,
-  view: StandingsView
+  view: StandingsView,
 ): number | null {
   for (let w = 1; w <= 50; w++) {
     const score = projectScore(
       current.played + w,
       current.points + 3 * w,
       current.gd + w * avgGdPerWin,
-      view
+      view,
     );
     if (score > frozenTargetScore) return w;
   }
@@ -75,20 +88,20 @@ function winsVsTarget(
   current: Player,
   target: Player,
   avgGdPerWin: number,
-  view: StandingsView
+  view: StandingsView,
 ): number | null {
   for (let w = 1; w <= 50; w++) {
     const myScore = projectScore(
       current.played + w,
       current.points + 3 * w,
       current.gd + w * avgGdPerWin,
-      view
+      view,
     );
     const theirScore = projectScore(
       target.played + w,
-      target.points,                      // no points from losses
-      target.gd - w * avgGdPerWin,        // they concede these goals
-      view
+      target.points, // no points from losses
+      target.gd - w * avgGdPerWin, // they concede these goals
+      view,
     );
     if (myScore > theirScore) return w;
   }
@@ -105,20 +118,22 @@ const RouteRow: React.FC<{
   <div
     className={`flex items-center justify-between rounded-lg px-3 py-2.5 gap-3 ${
       highlight
-        ? 'bg-accent-green/8 border border-accent-green/15'
-        : 'bg-glass-light'
+        ? "bg-accent-green/8 border border-accent-green/15"
+        : "bg-glass-light"
     }`}
   >
     <span className="text-[11px] text-text-muted flex-1 min-w-0">{label}</span>
     <span
       className={`flex-shrink-0 font-mono font-bold text-sm ${
-        highlight ? 'text-accent-green' : 'text-text-secondary'
+        highlight ? "text-accent-green" : "text-text-secondary"
       }`}
     >
       {wins === null ? (
-        <span className="text-[10px] text-text-muted italic font-normal">50+ wins</span>
+        <span className="text-[10px] text-text-muted italic font-normal">
+          50+ wins
+        </span>
       ) : wins === 1 ? (
-        '1 win'
+        "1 win"
       ) : (
         `${wins} wins`
       )}
@@ -133,17 +148,19 @@ const BeatenBefore: React.FC<{
   matches: Match[];
 }> = ({ current, allPlayers, target, matches }) => {
   // Build win-rate against every other player (excluding self)
-  const opponents = allPlayers.filter(p => p.id !== current.id && p.played > 0);
+  const opponents = allPlayers.filter(
+    (p) => p.id !== current.id && p.played > 0,
+  );
   if (opponents.length === 0) return null;
 
-  const records = opponents.map(opp => {
+  const records = opponents.map((opp) => {
     const h2h = computeHeadToHead(current.id, opp.id, matches);
     const total = h2h.winsA + h2h.draws + h2h.winsB;
     return { opp, winsA: h2h.winsA, draws: h2h.draws, winsB: h2h.winsB, total };
   });
 
   // Only show opponents that have been played against
-  const played = records.filter(r => r.total > 0);
+  const played = records.filter((r) => r.total > 0);
   if (played.length === 0) return null;
 
   // Sort: target first (always shown), then by win rate descending
@@ -165,8 +182,8 @@ const BeatenBefore: React.FC<{
             key={opp.id}
             className={`flex items-center gap-3 rounded-lg px-3 py-2 ${
               isTarget
-                ? 'bg-accent-gold/8 border border-accent-gold/15'
-                : 'bg-glass-light'
+                ? "bg-accent-gold/8 border border-accent-gold/15"
+                : "bg-glass-light"
             }`}
           >
             <img
@@ -180,7 +197,9 @@ const BeatenBefore: React.FC<{
             />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className={`text-xs font-semibold truncate ${isTarget ? 'text-accent-gold' : 'text-text-primary'}`}>
+                <span
+                  className={`text-xs font-semibold truncate ${isTarget ? "text-accent-gold" : "text-text-primary"}`}
+                >
                   {opp.name}
                 </span>
                 {isTarget && (
@@ -192,8 +211,14 @@ const BeatenBefore: React.FC<{
               {/* Win-rate bar */}
               <div className="flex items-center gap-1.5 mt-1">
                 <div className="flex-1 h-1 rounded-full bg-glass-strong overflow-hidden flex">
-                  <div className="h-full bg-accent-green" style={{ width: `${Math.round(winPct * 100)}%` }} />
-                  <div className="h-full bg-glass-border" style={{ width: `${Math.round((draws / total) * 100)}%` }} />
+                  <div
+                    className="h-full bg-accent-green"
+                    style={{ width: `${Math.round(winPct * 100)}%` }}
+                  />
+                  <div
+                    className="h-full bg-glass-border"
+                    style={{ width: `${Math.round((draws / total) * 100)}%` }}
+                  />
                 </div>
                 <span className="text-[10px] font-mono text-text-muted flex-shrink-0">
                   {winsA}W {draws}D {winsB}L
@@ -217,7 +242,15 @@ const ProjectionCard: React.FC<{
   targetRank: number;
   matches: Match[];
   view: StandingsView;
-}> = ({ current, target, allPlayers, currentRank, targetRank, matches, view }) => {
+}> = ({
+  current,
+  target,
+  allPlayers,
+  currentRank,
+  targetRank,
+  matches,
+  view,
+}) => {
   const [expanded, setExpanded] = useState(false);
 
   const currentScore = getScore(current, view);
@@ -234,18 +267,19 @@ const ProjectionCard: React.FC<{
   const anyoneDominant = winsVsAnyone(current, targetScore, 3, view);
   const bestAnyone = anyoneTight ?? anyoneDominant;
 
-  const quickestRoute = bestDirect !== null && (bestAnyone === null || bestDirect <= bestAnyone)
-    ? `${bestDirect}W vs ${target.name}`
-    : bestAnyone !== null
-      ? `${bestAnyone}W vs anyone`
-      : null;
+  const quickestRoute =
+    bestDirect !== null && (bestAnyone === null || bestDirect <= bestAnyone)
+      ? `${bestDirect}W vs ${target.name}`
+      : bestAnyone !== null
+        ? `${bestAnyone}W vs anyone`
+        : null;
 
   return (
     <div className="glass-card overflow-hidden">
       {/* Collapsed header */}
       <button
         className="w-full text-left p-4 flex items-center gap-3 hover:bg-glass-light/50 transition-colors"
-        onClick={() => setExpanded(v => !v)}
+        onClick={() => setExpanded((v) => !v)}
       >
         <div className="relative flex-shrink-0">
           <img
@@ -258,20 +292,28 @@ const ProjectionCard: React.FC<{
             }}
           />
           <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-glass-strong border border-glass-border flex items-center justify-center">
-            <span className="text-[8px] font-bold text-text-muted">#{currentRank}</span>
+            <span className="text-[8px] font-bold text-text-muted">
+              #{currentRank}
+            </span>
           </div>
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="font-bold text-sm text-text-primary truncate">{current.name}</span>
+            <span className="font-bold text-sm text-text-primary truncate">
+              {current.name}
+            </span>
             <ArrowRight className="w-3 h-3 text-accent-gold flex-shrink-0" />
-            <span className="text-xs text-accent-gold font-semibold">Rank #{targetRank}</span>
-            <span className="text-xs text-text-muted hidden sm:inline truncate">({target.name})</span>
+            <span className="text-xs text-accent-gold font-semibold">
+              Rank #{targetRank}
+            </span>
+            <span className="text-xs text-text-muted hidden sm:inline truncate">
+              ({target.name})
+            </span>
           </div>
           <div className="flex items-center gap-3 mt-0.5 flex-wrap">
             <span className="text-[11px] text-text-muted">
-              Gap:{' '}
+              Gap:{" "}
               <span className="font-mono font-semibold text-accent-red">
                 {formatScore(gap, view)} {scoreLabel(view)}
               </span>
@@ -285,29 +327,40 @@ const ProjectionCard: React.FC<{
         </div>
 
         <div className="flex-shrink-0 text-text-muted">
-          {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          {expanded ? (
+            <ChevronUp className="w-4 h-4" />
+          ) : (
+            <ChevronDown className="w-4 h-4" />
+          )}
         </div>
       </button>
 
       {/* Expanded detail */}
       {expanded && (
         <div className="px-4 pb-4 space-y-5 border-t border-glass-border pt-4">
-
           {/* Score comparison */}
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-glass-light rounded-xl p-3 text-center">
-              <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Your score</div>
+              <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
+                Your score
+              </div>
               <div className="text-xl font-extrabold font-mono text-text-primary">
                 {formatScore(currentScore, view)}
               </div>
-              <div className="text-[10px] text-text-muted mt-0.5">{current.name}</div>
+              <div className="text-[10px] text-text-muted mt-0.5">
+                {current.name}
+              </div>
             </div>
             <div className="bg-accent-gold/5 border border-accent-gold/15 rounded-xl p-3 text-center">
-              <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Need to beat</div>
+              <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
+                Need to beat
+              </div>
               <div className="text-xl font-extrabold font-mono text-accent-gold">
                 {formatScore(targetScore, view)}
               </div>
-              <div className="text-[10px] text-text-muted mt-0.5">{target.name}</div>
+              <div className="text-[10px] text-text-muted mt-0.5">
+                {target.name}
+              </div>
             </div>
           </div>
 
@@ -320,11 +373,24 @@ const ProjectionCard: React.FC<{
               </span>
             </div>
             <p className="text-[10px] text-text-muted leading-relaxed mb-2">
-              Every win against {target.name} <span className="text-text-secondary font-medium">moves both scores at once</span> — yours rises, theirs falls. Fewer games needed than beating anyone else.
+              Every win against {target.name}{" "}
+              <span className="text-text-secondary font-medium">
+                moves both scores at once
+              </span>{" "}
+              — yours rises, theirs falls. Fewer games needed than beating
+              anyone else.
             </p>
             <div className="space-y-1.5">
-              <RouteRow label={`Tight wins vs ${target.name} (avg. +1 GD/game)`} wins={directTight} highlight />
-              <RouteRow label={`Dominant wins vs ${target.name} (avg. +3 GD/game)`} wins={directDominant} highlight />
+              <RouteRow
+                label={`Tight wins vs ${target.name} (avg. +1 GD/game)`}
+                wins={directTight}
+                highlight
+              />
+              <RouteRow
+                label={`Dominant wins vs ${target.name} (avg. +3 GD/game)`}
+                wins={directDominant}
+                highlight
+              />
             </div>
           </div>
 
@@ -337,11 +403,18 @@ const ProjectionCard: React.FC<{
               </span>
             </div>
             <p className="text-[10px] text-text-muted leading-relaxed mb-2">
-              Winning against any other player still improves your score, but {target.name}'s score stays unchanged — so you need more wins.
+              Winning against any other player still improves your score, but{" "}
+              {target.name}'s score stays unchanged — so you need more wins.
             </p>
             <div className="space-y-1.5">
-              <RouteRow label="Tight wins vs anyone (avg. +1 GD/game)" wins={anyoneTight} />
-              <RouteRow label="Dominant wins vs anyone (avg. +3 GD/game)" wins={anyoneDominant} />
+              <RouteRow
+                label="Tight wins vs anyone (avg. +1 GD/game)"
+                wins={anyoneTight}
+              />
+              <RouteRow
+                label="Dominant wins vs anyone (avg. +3 GD/game)"
+                wins={anyoneDominant}
+              />
             </div>
           </div>
 
@@ -368,8 +441,12 @@ const ProjectionCard: React.FC<{
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 
-export const RankProjection: React.FC<RankProjectionProps> = ({ players, matches, view }) => {
-  const sorted = getSortedByView(players, view).filter(p => p.played > 0);
+export const RankProjection: React.FC<RankProjectionProps> = ({
+  players,
+  matches,
+  view,
+}) => {
+  const sorted = getSortedByView(players, view).filter((p) => p.played > 0);
 
   if (sorted.length < 2) return null;
 
@@ -387,8 +464,9 @@ export const RankProjection: React.FC<RankProjectionProps> = ({ players, matches
         </span>
       </div>
       <p className="text-[11px] text-text-muted leading-relaxed max-w-2xl">
-        What each player needs to overtake the rank above. Beating the target directly is always
-        the most efficient route — it moves both scores simultaneously.
+        What each player needs to overtake the rank above. Beating the target
+        directly is always the most efficient route — it moves both scores
+        simultaneously.
       </p>
 
       <div className="space-y-2">

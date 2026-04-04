@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Player } from '../types';
-import { Check, X, Swords } from 'lucide-react';
+import React, { useState } from "react";
+import { Player } from "../types";
+import { Check, X, Swords } from "lucide-react";
 
 interface MatchFormProps {
   players: Player[];
@@ -8,25 +8,34 @@ interface MatchFormProps {
   onCancel: () => void;
 }
 
-export const MatchForm: React.FC<MatchFormProps> = ({ players, onAddMatch, onCancel }) => {
-  const [p1Id, setP1Id] = useState<string>('');
-  const [p2Id, setP2Id] = useState<string>('');
-  const [s1, setS1] = useState<string>('');
-  const [s2, setS2] = useState<string>('');
+export const MatchForm: React.FC<MatchFormProps> = ({
+  players,
+  onAddMatch,
+  onCancel,
+}) => {
+  const [p1Id, setP1Id] = useState<string>("");
+  const [p2Id, setP2Id] = useState<string>("");
+  const [s1, setS1] = useState<string>("");
+  const [s2, setS2] = useState<string>("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!p1Id || !p2Id || p1Id === p2Id || s1 === '' || s2 === '') return;
+    if (!p1Id || !p2Id || p1Id === p2Id || s1 === "" || s2 === "") return;
     onAddMatch(p1Id, p2Id, parseInt(s1), parseInt(s2));
   };
 
-  const valid = p1Id && p2Id && p1Id !== p2Id && s1 !== '' && s2 !== '';
+  const valid = p1Id && p2Id && p1Id !== p2Id && s1 !== "" && s2 !== "";
 
-  const p1 = players.find(p => p.id === p1Id);
-  const p2 = players.find(p => p.id === p2Id);
+  const p1 = players.find((p) => p.id === p1Id);
+  const p2 = players.find((p) => p.id === p2Id);
 
   return (
-    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
+    <div
+      className="modal-overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onCancel();
+      }}
+    >
       <div className="modal-content">
         {/* Header */}
         <div className="relative px-6 pt-6 pb-4">
@@ -37,8 +46,12 @@ export const MatchForm: React.FC<MatchFormProps> = ({ players, onAddMatch, onCan
                 <Swords className="w-4 h-4 text-accent-green" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-text-primary">Record Result</h2>
-                <p className="text-[11px] text-text-muted mt-0.5">Enter match details below</p>
+                <h2 className="text-base font-bold text-text-primary">
+                  Record Result
+                </h2>
+                <p className="text-[11px] text-text-muted mt-0.5">
+                  Enter match details below
+                </p>
               </div>
             </div>
             <button
@@ -55,11 +68,19 @@ export const MatchForm: React.FC<MatchFormProps> = ({ players, onAddMatch, onCan
           <div className="grid grid-cols-[1fr,auto,1fr] gap-3 items-end">
             {/* Player 1 */}
             <div className="space-y-2">
-              <label className="text-[10px] font-semibold text-text-muted uppercase tracking-wider block text-center">Home</label>
+              <label className="text-[10px] font-semibold text-text-muted uppercase tracking-wider block text-center">
+                Home
+              </label>
               {p1 && (
                 <div className="flex justify-center mb-1">
-                  <img src={p1.avatarUrl} alt={p1.name} className="avatar w-10 h-10"
-                    onError={(e) => { (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${p1.name}`; }}
+                  <img
+                    src={p1.avatarUrl}
+                    alt={p1.name}
+                    className="avatar w-10 h-10"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src =
+                        `https://api.dicebear.com/7.x/avataaars/svg?seed=${p1.name}`;
+                    }}
                   />
                 </div>
               )}
@@ -69,7 +90,11 @@ export const MatchForm: React.FC<MatchFormProps> = ({ players, onAddMatch, onCan
                 className="select-field w-full text-center text-xs"
               >
                 <option value="">Select</option>
-                {players.map(p => <option key={p.id} value={p.id} disabled={p.id === p2Id}>{p.name}</option>)}
+                {players.map((p) => (
+                  <option key={p.id} value={p.id} disabled={p.id === p2Id}>
+                    {p.name}
+                  </option>
+                ))}
               </select>
               <input
                 type="number"
@@ -85,11 +110,19 @@ export const MatchForm: React.FC<MatchFormProps> = ({ players, onAddMatch, onCan
 
             {/* Player 2 */}
             <div className="space-y-2">
-              <label className="text-[10px] font-semibold text-text-muted uppercase tracking-wider block text-center">Away</label>
+              <label className="text-[10px] font-semibold text-text-muted uppercase tracking-wider block text-center">
+                Away
+              </label>
               {p2 && (
                 <div className="flex justify-center mb-1">
-                  <img src={p2.avatarUrl} alt={p2.name} className="avatar w-10 h-10"
-                    onError={(e) => { (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${p2.name}`; }}
+                  <img
+                    src={p2.avatarUrl}
+                    alt={p2.name}
+                    className="avatar w-10 h-10"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src =
+                        `https://api.dicebear.com/7.x/avataaars/svg?seed=${p2.name}`;
+                    }}
                   />
                 </div>
               )}
@@ -99,7 +132,11 @@ export const MatchForm: React.FC<MatchFormProps> = ({ players, onAddMatch, onCan
                 className="select-field w-full text-center text-xs"
               >
                 <option value="">Select</option>
-                {players.map(p => <option key={p.id} value={p.id} disabled={p.id === p1Id}>{p.name}</option>)}
+                {players.map((p) => (
+                  <option key={p.id} value={p.id} disabled={p.id === p1Id}>
+                    {p.name}
+                  </option>
+                ))}
               </select>
               <input
                 type="number"
@@ -126,8 +163,8 @@ export const MatchForm: React.FC<MatchFormProps> = ({ players, onAddMatch, onCan
               disabled={!valid}
               className={`flex-1 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${
                 valid
-                  ? 'btn-primary'
-                  : 'bg-glass-light text-text-muted border border-glass-border cursor-not-allowed'
+                  ? "btn-primary"
+                  : "bg-glass-light text-text-muted border border-glass-border cursor-not-allowed"
               }`}
             >
               <Check className="w-4 h-4" /> Record Match

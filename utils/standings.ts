@@ -1,5 +1,5 @@
-import { Player, Match } from '../types';
-import type { StandingsView } from '../types';
+import { Player, Match } from "../types";
+import type { StandingsView } from "../types";
 
 /**
  * Comprehensive normalised score: rewards consistency over many games and goal difference.
@@ -21,7 +21,11 @@ export function getNormalisedScoreDisplay(p: Player): string {
 }
 
 /** Normalised score from cumulative stats (e.g. for trajectory over time). */
-export function getNormalisedScoreFromStats(played: number, points: number, gd: number): number {
+export function getNormalisedScoreFromStats(
+  played: number,
+  points: number,
+  gd: number,
+): number {
   if (played <= 0) return 0;
   const adjustedPpg = points / (played + 2);
   const gdPerGame = gd / played;
@@ -57,18 +61,24 @@ function sortByTable(a: Player, b: Player): number {
   return b.gf - a.gf;
 }
 
-export function getSortedByView(players: Player[], view: StandingsView): Player[] {
+export function getSortedByView(
+  players: Player[],
+  view: StandingsView,
+): Player[] {
   const copy = [...players];
-  if (view === 'NORMALISED') copy.sort(sortByNormalised);
-  else if (view === 'PPG') copy.sort(sortByPpg);
+  if (view === "NORMALISED") copy.sort(sortByNormalised);
+  else if (view === "PPG") copy.sort(sortByPpg);
   else copy.sort(sortByTable);
   return copy;
 }
 
 /** Leader for the given view (must have played at least 1 game). */
-export function getLeader(players: Player[], view: StandingsView): Player | undefined {
+export function getLeader(
+  players: Player[],
+  view: StandingsView,
+): Player | undefined {
   const sorted = getSortedByView(players, view);
-  return sorted.find(p => p.played > 0) ?? undefined;
+  return sorted.find((p) => p.played > 0) ?? undefined;
 }
 
 /**
@@ -78,7 +88,10 @@ export function getLeader(players: Player[], view: StandingsView): Player | unde
  * This ignores any denormalised stats saved on the Player records in the DB and
  * always derives the latest numbers from match history.
  */
-export function computePlayersWithStats(players: Player[], matches: Match[]): Player[] {
+export function computePlayersWithStats(
+  players: Player[],
+  matches: Match[],
+): Player[] {
   // Start with a clean stats slate for every player but keep identity + avatar
   const map: Record<string, Player> = {};
   for (const p of players) {
@@ -121,31 +134,31 @@ export function computePlayersWithStats(players: Player[], matches: Match[]): Pl
       // p1 win
       p1.wins += 1;
       p1.points += 3;
-      p1.form = [...p1.form, 'W'];
+      p1.form = [...p1.form, "W"];
 
       p2.losses += 1;
-      p2.form = [...p2.form, 'L'];
+      p2.form = [...p2.form, "L"];
     } else if (m.score2 > m.score1) {
       // p2 win
       p2.wins += 1;
       p2.points += 3;
-      p2.form = [...p2.form, 'W'];
+      p2.form = [...p2.form, "W"];
 
       p1.losses += 1;
-      p1.form = [...p1.form, 'L'];
+      p1.form = [...p1.form, "L"];
     } else {
       // draw
       p1.draws += 1;
       p2.draws += 1;
       p1.points += 1;
       p2.points += 1;
-      p1.form = [...p1.form, 'D'];
-      p2.form = [...p2.form, 'D'];
+      p1.form = [...p1.form, "D"];
+      p2.form = [...p2.form, "D"];
     }
   }
 
   // Finalise derived values like PPG, preserving original ordering
-  return players.map(original => {
+  return players.map((original) => {
     const computed = map[original.id];
     if (!computed) return original;
     const ppg = computed.played > 0 ? computed.points / computed.played : 0;

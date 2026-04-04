@@ -1,6 +1,13 @@
-import React, { useMemo, useState } from 'react';
-import { PlayerProfile, Tournament, TournamentParticipant } from '../types';
-import { Plus, UserPlus, ShieldCheck, Trash2, Users } from 'lucide-react';
+import React, { useMemo, useState } from "react";
+import { PlayerProfile, Tournament, TournamentParticipant } from "../types";
+import {
+  Check,
+  Plus,
+  UserPlus,
+  ShieldCheck,
+  Trash2,
+  Users,
+} from "lucide-react";
 
 interface TournamentSquadProps {
   tournament: Tournament;
@@ -21,12 +28,14 @@ export const TournamentSquad: React.FC<TournamentSquadProps> = ({
   onUpdateParticipantTeam,
   onRemoveParticipant,
 }) => {
-  const [newPlayerName, setNewPlayerName] = useState('');
-  const [selectedProfileId, setSelectedProfileId] = useState('');
-  const [selectedTeamName, setSelectedTeamName] = useState('');
+  const [newPlayerName, setNewPlayerName] = useState("");
+  const [selectedProfileId, setSelectedProfileId] = useState("");
+  const [selectedTeamName, setSelectedTeamName] = useState("");
 
   const availableProfiles = useMemo(() => {
-    const existingProfileIds = new Set(tournament.participants.map((participant) => participant.profileId));
+    const existingProfileIds = new Set(
+      tournament.participants.map((participant) => participant.profileId),
+    );
     return playerPool.filter((profile) => !existingProfileIds.has(profile.id));
   }, [playerPool, tournament.participants]);
 
@@ -35,15 +44,15 @@ export const TournamentSquad: React.FC<TournamentSquadProps> = ({
     const trimmed = newPlayerName.trim();
     if (!trimmed) return;
     onCreatePlayerProfile(trimmed);
-    setNewPlayerName('');
+    setNewPlayerName("");
   };
 
   const handleAddParticipant = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProfileId || !selectedTeamName.trim()) return;
     onAddParticipant(selectedProfileId, selectedTeamName.trim());
-    setSelectedProfileId('');
-    setSelectedTeamName('');
+    setSelectedProfileId("");
+    setSelectedTeamName("");
   };
 
   return (
@@ -56,8 +65,12 @@ export const TournamentSquad: React.FC<TournamentSquadProps> = ({
               <UserPlus className="w-4 h-4 text-accent-green" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-text-primary">Player Pool</h3>
-              <p className="text-[11px] text-text-muted">Add guests who are not part of the main league</p>
+              <h3 className="text-base font-bold text-text-primary">
+                Player Pool
+              </h3>
+              <p className="text-[11px] text-text-muted">
+                Add guests who are not part of the main league
+              </p>
             </div>
           </div>
 
@@ -87,8 +100,12 @@ export const TournamentSquad: React.FC<TournamentSquadProps> = ({
               <Users className="w-4 h-4 text-accent-purple" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-text-primary">Tournament Squad</h3>
-              <p className="text-[11px] text-text-muted">Select a player from the pool and assign their team</p>
+              <h3 className="text-base font-bold text-text-primary">
+                Tournament Squad
+              </h3>
+              <p className="text-[11px] text-text-muted">
+                Select a player from the pool and assign their team
+              </p>
             </div>
           </div>
 
@@ -116,7 +133,9 @@ export const TournamentSquad: React.FC<TournamentSquadProps> = ({
             />
             <button
               type="submit"
-              disabled={!canManage || !selectedProfileId || !selectedTeamName.trim()}
+              disabled={
+                !canManage || !selectedProfileId || !selectedTeamName.trim()
+              }
               className="btn-primary w-full py-3 flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4" /> Add to Tournament
@@ -131,8 +150,14 @@ export const TournamentSquad: React.FC<TournamentSquadProps> = ({
             <Users className="w-4 h-4 text-accent-blue" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-text-primary">Registered Players</h3>
-            <p className="text-[10px] text-text-muted">{tournament.participants.length} player{tournament.participants.length !== 1 ? 's' : ''} in this tournament</p>
+            <h3 className="text-sm font-bold text-text-primary">
+              Registered Players
+            </h3>
+            <p className="text-[10px] text-text-muted">
+              {tournament.participants.length} player
+              {tournament.participants.length !== 1 ? "s" : ""} in this
+              tournament
+            </p>
           </div>
         </div>
 
@@ -163,9 +188,12 @@ export const TournamentSquad: React.FC<TournamentSquadProps> = ({
           <ShieldCheck className="w-4 h-4 text-accent-blue" />
         </div>
         <div>
-          <h4 className="text-xs font-semibold text-accent-blue">Shared Player Pool</h4>
+          <h4 className="text-xs font-semibold text-accent-blue">
+            Shared Player Pool
+          </h4>
           <p className="text-[11px] text-text-muted mt-1 leading-relaxed">
-            Players live in a platform-wide pool, but their chosen team stays unique to this tournament.
+            Players live in a platform-wide pool, but their chosen team stays
+            unique to this tournament.
           </p>
         </div>
       </div>
@@ -178,7 +206,12 @@ const ParticipantCard: React.FC<{
   canManage: boolean;
   onUpdateParticipantTeam: (participantId: string, teamName: string) => void;
   onRemoveParticipant: (participantId: string) => void;
-}> = ({ participant, canManage, onUpdateParticipantTeam, onRemoveParticipant }) => {
+}> = ({
+  participant,
+  canManage,
+  onUpdateParticipantTeam,
+  onRemoveParticipant,
+}) => {
   const [teamName, setTeamName] = useState(participant.teamName);
 
   return (
@@ -189,12 +222,17 @@ const ParticipantCard: React.FC<{
           alt={participant.name}
           className="avatar w-10 h-10 shrink-0"
           onError={(e) => {
-            (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${participant.name}`;
+            (e.target as HTMLImageElement).src =
+              `https://api.dicebear.com/7.x/avataaars/svg?seed=${participant.name}`;
           }}
         />
         <div className="min-w-0 flex-1">
-          <div className="font-semibold text-text-primary text-sm truncate">{participant.name}</div>
-          <div className="text-[10px] text-text-muted uppercase tracking-wider">Tournament Player</div>
+          <div className="font-semibold text-text-primary text-sm truncate">
+            {participant.name}
+          </div>
+          <div className="text-[10px] text-text-muted uppercase tracking-wider">
+            Tournament Player
+          </div>
         </div>
         {canManage && (
           <button
@@ -219,10 +257,11 @@ const ParticipantCard: React.FC<{
         {canManage && (
           <button
             onClick={() => onUpdateParticipantTeam(participant.id, teamName)}
-            className="btn-ghost px-4 text-sm"
+            className="btn-ghost px-3 py-2 text-sm flex items-center gap-1.5"
             type="button"
+            title="Save Team Name"
           >
-            Save
+            <Check className="w-3.5 h-3.5" /> Save
           </button>
         )}
       </div>

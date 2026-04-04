@@ -1,6 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { auth, LoginAuditEntry } from '../services/auth';
-import { Clock, CheckCircle, XCircle, RefreshCw, User, Globe, History } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import { auth, LoginAuditEntry } from "../services/auth";
+import {
+  Clock,
+  CheckCircle,
+  XCircle,
+  RefreshCw,
+  User,
+  Globe,
+  History,
+} from "lucide-react";
 
 export const LoginDetails: React.FC = () => {
   const [auditEntries, setAuditEntries] = useState<LoginAuditEntry[]>([]);
@@ -19,8 +27,11 @@ export const LoginDetails: React.FC = () => {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleString('en-US', {
-      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+    return date.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
@@ -28,21 +39,25 @@ export const LoginDetails: React.FC = () => {
     <div className="glass-card overflow-hidden">
       {/* Top accent line */}
       <div className="h-px bg-gradient-to-r from-transparent via-accent-blue/30 to-transparent"></div>
-      
+
       <div className="p-5 sm:p-6">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-accent-blue/10 border border-accent-blue/20 flex items-center justify-center">
               <History className="w-4 h-4 text-accent-blue" />
             </div>
-            <h3 className="text-sm font-bold text-text-primary">Login History</h3>
+            <h3 className="text-sm font-bold text-text-primary">
+              Login History
+            </h3>
           </div>
           <button
             onClick={loadAudit}
             disabled={loading}
             className="btn-ghost flex items-center gap-2 text-xs disabled:opacity-50"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}
+            />
             <span className="hidden sm:inline">Refresh</span>
           </button>
         </div>
@@ -55,7 +70,9 @@ export const LoginDetails: React.FC = () => {
         ) : auditEntries.length === 0 ? (
           <div className="text-center py-12 bg-glass-light rounded-xl border border-glass-border">
             <Clock className="w-8 h-8 mx-auto mb-2 text-text-muted opacity-40" />
-            <p className="text-sm text-text-muted">No login attempts recorded</p>
+            <p className="text-sm text-text-muted">
+              No login attempts recorded
+            </p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -64,8 +81,8 @@ export const LoginDetails: React.FC = () => {
                 key={entry.id}
                 className={`p-3 sm:p-4 rounded-xl border transition-colors ${
                   entry.success
-                    ? 'bg-accent-green/3 border-accent-green/10 hover:border-accent-green/20'
-                    : 'bg-accent-red/3 border-accent-red/10 hover:border-accent-red/20'
+                    ? "bg-accent-green/3 border-accent-green/10 hover:border-accent-green/20"
+                    : "bg-accent-red/3 border-accent-red/10 hover:border-accent-red/20"
                 }`}
               >
                 <div className="flex items-center gap-3">
@@ -79,12 +96,14 @@ export const LoginDetails: React.FC = () => {
                       <span className="font-semibold text-text-primary text-sm">
                         {entry.admin_name_snapshot}
                       </span>
-                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider ${
-                        entry.success
-                          ? 'bg-accent-green/10 text-accent-green border border-accent-green/15'
-                          : 'bg-accent-red/10 text-accent-red border border-accent-red/15'
-                      }`}>
-                        {entry.success ? 'Success' : 'Failed'}
+                      <span
+                        className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider ${
+                          entry.success
+                            ? "bg-accent-green/10 text-accent-green border border-accent-green/15"
+                            : "bg-accent-red/10 text-accent-red border border-accent-red/15"
+                        }`}
+                      >
+                        {entry.success ? "Success" : "Failed"}
                       </span>
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-[10px] text-text-muted flex-wrap">

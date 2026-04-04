@@ -1,4 +1,4 @@
-import { Match } from '../types';
+import { Match } from "../types";
 
 export interface HeadToHeadStats {
   playerAId: string;
@@ -31,7 +31,10 @@ export interface HeadToHeadStats {
   biggestLossScoreB: string | null;
 }
 
-function getScores(match: Match, playerAId: string): { scoreA: number; scoreB: number } {
+function getScores(
+  match: Match,
+  playerAId: string,
+): { scoreA: number; scoreB: number } {
   if (match.player1Id === playerAId) {
     return { scoreA: match.score1, scoreB: match.score2 };
   }
@@ -41,14 +44,16 @@ function getScores(match: Match, playerAId: string): { scoreA: number; scoreB: n
 export function computeHeadToHead(
   playerAId: string,
   playerBId: string,
-  matches: Match[]
+  matches: Match[],
 ): HeadToHeadStats {
   const between = matches.filter(
-    m =>
+    (m) =>
       (m.player1Id === playerAId && m.player2Id === playerBId) ||
-      (m.player1Id === playerBId && m.player2Id === playerAId)
+      (m.player1Id === playerBId && m.player2Id === playerAId),
   );
-  const matchesChronological = [...between].sort((a, b) => a.timestamp - b.timestamp);
+  const matchesChronological = [...between].sort(
+    (a, b) => a.timestamp - b.timestamp,
+  );
 
   let winsA = 0,
     winsB = 0,
@@ -107,13 +112,13 @@ export function computeHeadToHead(
 
   // Current streak from most recent match (going backwards)
   let streakACount = 0;
-  let streakAResult: 'W' | 'L' | 'D' | null = null;
+  let streakAResult: "W" | "L" | "D" | null = null;
   let streakBCount = 0;
-  let streakBResult: 'W' | 'L' | 'D' | null = null;
+  let streakBResult: "W" | "L" | "D" | null = null;
   for (let i = matchesChronological.length - 1; i >= 0; i--) {
     const { scoreA, scoreB } = getScores(matchesChronological[i], playerAId);
-    const resultA = scoreA > scoreB ? 'W' : scoreA < scoreB ? 'L' : 'D';
-    const resultB = scoreB > scoreA ? 'W' : scoreB < scoreA ? 'L' : 'D';
+    const resultA = scoreA > scoreB ? "W" : scoreA < scoreB ? "L" : "D";
+    const resultB = scoreB > scoreA ? "W" : scoreB < scoreA ? "L" : "D";
     if (streakAResult == null) {
       streakAResult = resultA;
       streakACount = 1;
@@ -125,7 +130,7 @@ export function computeHeadToHead(
   }
   for (let i = matchesChronological.length - 1; i >= 0; i--) {
     const { scoreA, scoreB } = getScores(matchesChronological[i], playerAId);
-    const resultB = scoreB > scoreA ? 'W' : scoreB < scoreA ? 'L' : 'D';
+    const resultB = scoreB > scoreA ? "W" : scoreB < scoreA ? "L" : "D";
     if (streakBResult == null) {
       streakBResult = resultB;
       streakBCount = 1;
@@ -135,8 +140,12 @@ export function computeHeadToHead(
       break;
     }
   }
-  const streakALabel = streakAResult ? `${streakAResult}${streakACount > 1 ? streakACount : ''}` : '-';
-  const streakBLabel = streakBResult ? `${streakBResult}${streakBCount > 1 ? streakBCount : ''}` : '-';
+  const streakALabel = streakAResult
+    ? `${streakAResult}${streakACount > 1 ? streakACount : ""}`
+    : "-";
+  const streakBLabel = streakBResult
+    ? `${streakBResult}${streakBCount > 1 ? streakBCount : ""}`
+    : "-";
 
   return {
     playerAId,

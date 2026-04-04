@@ -1,7 +1,14 @@
-import { Capacitor } from '@capacitor/core';
-import { Admin, PlatformState, Tournament, TournamentAdmin, TournamentAdminAudit } from '../types';
-import { supabase } from './supabaseClient';
-import { sessionStorage } from './sessionStorage';
+import { Capacitor } from "@capacitor/core";
+import {
+  Admin,
+  PlatformState,
+  Tournament,
+  TournamentAdmin,
+  TournamentAdminAudit,
+} from "../types";
+import { supabase } from "./supabaseClient";
+import { sessionStorage } from "./sessionStorage";
+import { getDefaultTrophyImage } from "../utils/tournaments";
 
 export interface LoginAuditEntry {
   id: number;
@@ -13,30 +20,30 @@ export interface LoginAuditEntry {
   user_agent: string | null;
 }
 
-const GLOBAL_AUTH_STORAGE_KEY = 'global_admin_auth';
-const LEGACY_TOURNAMENT_ID = 'superjoin-fc26-league';
-const LEGACY_TOURNAMENT_NAME = 'superjoin fc26 league';
+const GLOBAL_AUTH_STORAGE_KEY = "global_admin_auth";
+const LEGACY_TOURNAMENT_ID = "superjoin-fc26-league";
+const LEGACY_TOURNAMENT_NAME = "superjoin fc26 league";
 
 export const LEGACY_ADMIN_SEEDS = [
-  { name: 'manan', password: 'football' },
-  { name: 'abhinav', password: 'champion' },
-  { name: 'sagar', password: 'defender' },
-  { name: 'karan', password: 'midfield' },
-  { name: 'mukul', password: 'killerindiafc' },
+  { name: "manan", password: "football" },
+  { name: "abhinav", password: "champion" },
+  { name: "sagar", password: "defender" },
+  { name: "karan", password: "midfield" },
+  { name: "mukul", password: "killerindiafc" },
 ];
 
 function getUserAgent(): string {
   if (Capacitor.isNativePlatform()) {
-    return 'FIFA League Tracker iOS';
+    return "FIFA League Tracker iOS";
   }
-  return typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown';
+  return typeof navigator !== "undefined" ? navigator.userAgent : "unknown";
 }
 
 async function sha256(value: string): Promise<string> {
   const data = new TextEncoder().encode(value);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  return hashArray.map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -44,7 +51,7 @@ export async function hashPassword(password: string): Promise<string> {
 }
 
 async function fetchIpAddress(): Promise<string | null> {
-  return fetch('https://api.ipify.org?format=json')
+  return fetch("https://api.ipify.org?format=json")
     .then((res) => res.json())
     .then((data) => data.ip as string)
     .catch(() => null);
@@ -58,12 +65,21 @@ export async function buildSeedTournamentAdmins(): Promise<TournamentAdmin[]> {
       name: seed.name,
       passwordHash: await hashPassword(seed.password),
       createdAt: now + index,
-    }))
+    })),
+  );
+}
+
+export async function buildDefaultTournamentAdmins(): Promise<
+  TournamentAdmin[]
+> {
+  const seededAdmins = await buildSeedTournamentAdmins();
+  return seededAdmins.filter(
+    (admin) => normalizeAdminName(admin.name) === "abhinav",
   );
 }
 
 function normalizeAdminName(name: string): string {
-  return name.toLowerCase().trim().replace(/\s+/g, ' ');
+  return name.toLowerCase().trim().replace(/\s+/g, " ");
 }
 
 function isLegacyTournament(tournament: Tournament): boolean {
@@ -73,18 +89,25 @@ function isLegacyTournament(tournament: Tournament): boolean {
   );
 }
 
-export async function reconcileLegacyTournamentAdmins(tournament: Tournament): Promise<Tournament> {
+export async function reconcileLegacyTournamentAdmins(
+  tournament: Tournament,
+): Promise<Tournament> {
   if (!isLegacyTournament(tournament)) {
     return tournament;
   }
 
   const seededAdmins = await buildSeedTournamentAdmins();
-  const seedNameSet = new Set(seededAdmins.map((admin) => normalizeAdminName(admin.name)));
-  const preservedAdmins = tournament.admins.filter((admin) => !seedNameSet.has(normalizeAdminName(admin.name)));
+  const seedNameSet = new Set(
+    seededAdmins.map((admin) => normalizeAdminName(admin.name)),
+  );
+  const preservedAdmins = tournament.admins.filter(
+    (admin) => !seedNameSet.has(normalizeAdminName(admin.name)),
+  );
 
   const mergedSeedAdmins = seededAdmins.map((seededAdmin) => {
     const existing = tournament.admins.find(
-      (admin) => normalizeAdminName(admin.name) === normalizeAdminName(seededAdmin.name)
+      (admin) =>
+        normalizeAdminName(admin.name) === normalizeAdminName(seededAdmin.name),
     );
 
     return existing
@@ -100,7 +123,11 @@ export async function reconcileLegacyTournamentAdmins(tournament: Tournament): P
     mergedAdmins.length !== tournament.admins.length ||
     mergedAdmins.some((admin, index) => {
       const current = tournament.admins[index];
-      return !current || current.name !== admin.name || current.passwordHash !== admin.passwordHash;
+      return (
+        !current ||
+        current.name !== admin.name ||
+        current.passwordHash !== admin.passwordHash
+      );
     });
 
   if (!changed) {
@@ -109,17 +136,24 @@ export async function reconcileLegacyTournamentAdmins(tournament: Tournament): P
 
   return {
     ...tournament,
+    trophyImage: tournament.trophyImage || getDefaultTrophyImage(),
     admins: mergedAdmins,
     updatedAt: Date.now(),
   };
 }
 
-export async function reconcilePlatformAdmins(platform: PlatformState): Promise<PlatformState> {
+export async function reconcilePlatformAdmins(
+  platform: PlatformState,
+): Promise<PlatformState> {
   const tournaments = await Promise.all(
-    platform.tournaments.map((tournament) => reconcileLegacyTournamentAdmins(tournament))
+    platform.tournaments.map((tournament) =>
+      reconcileLegacyTournamentAdmins(tournament),
+    ),
   );
 
-  const changed = tournaments.some((tournament, index) => tournament !== platform.tournaments[index]);
+  const changed = tournaments.some(
+    (tournament, index) => tournament !== platform.tournaments[index],
+  );
   if (!changed) {
     return platform;
   }
@@ -136,7 +170,7 @@ async function saveGlobalSession(admin: Admin): Promise<void> {
     JSON.stringify({
       admin,
       timestamp: Date.now(),
-    })
+    }),
   );
 }
 
@@ -156,47 +190,58 @@ async function readGlobalSession(): Promise<Admin | null> {
   }
 }
 
-async function loginWithSupabase(password: string): Promise<{ success: boolean; admin?: Admin; error?: string }> {
+async function loginWithSupabase(
+  password: string,
+): Promise<{ success: boolean; admin?: Admin; error?: string }> {
   if (!supabase) {
-    return { success: false, error: 'Supabase not configured' };
+    return { success: false, error: "Supabase not configured" };
   }
 
   try {
-    const { data: adminData, error } = await supabase.rpc('verify_admin_password', {
-      plain_password: password.trim(),
-    });
+    const { data: adminData, error } = await supabase.rpc(
+      "verify_admin_password",
+      {
+        plain_password: password.trim(),
+      },
+    );
 
     if (error) {
-      console.error('verify_admin_password RPC:', error);
-      return { success: false, error: error.message || 'Login failed' };
+      console.error("verify_admin_password RPC:", error);
+      return { success: false, error: error.message || "Login failed" };
     }
 
     const matched = Array.isArray(adminData) ? adminData[0] : null;
-    if (!matched || String(matched.name).toLowerCase().trim() !== 'abhinav') {
-      return { success: false, error: 'Invalid global admin password' };
+    if (!matched || String(matched.name).toLowerCase().trim() !== "abhinav") {
+      return { success: false, error: "Invalid global admin password" };
     }
 
     const admin: Admin = { id: matched.id, name: matched.name };
     await saveGlobalSession(admin);
     return { success: true, admin };
   } catch (error) {
-    console.error('Global login error:', error);
-    return { success: false, error: 'Login failed' };
+    console.error("Global login error:", error);
+    return { success: false, error: "Login failed" };
   }
 }
 
-async function verifyLegacyAdminWithSupabase(adminName: string, password: string): Promise<Admin | null> {
+async function verifyLegacyAdminWithSupabase(
+  adminName: string,
+  password: string,
+): Promise<Admin | null> {
   if (!supabase) {
     return null;
   }
 
   try {
-    const { data: adminData, error } = await supabase.rpc('verify_admin_password', {
-      plain_password: password.trim(),
-    });
+    const { data: adminData, error } = await supabase.rpc(
+      "verify_admin_password",
+      {
+        plain_password: password.trim(),
+      },
+    );
 
     if (error) {
-      console.error('verify_admin_password RPC (legacy tournament):', error);
+      console.error("verify_admin_password RPC (legacy tournament):", error);
       return null;
     }
 
@@ -205,7 +250,9 @@ async function verifyLegacyAdminWithSupabase(adminName: string, password: string
       return null;
     }
 
-    if (normalizeAdminName(String(matched.name)) !== normalizeAdminName(adminName)) {
+    if (
+      normalizeAdminName(String(matched.name)) !== normalizeAdminName(adminName)
+    ) {
       return null;
     }
 
@@ -214,21 +261,23 @@ async function verifyLegacyAdminWithSupabase(adminName: string, password: string
       name: String(matched.name),
     };
   } catch (error) {
-    console.error('Legacy tournament Supabase verification error:', error);
+    console.error("Legacy tournament Supabase verification error:", error);
     return null;
   }
 }
 
-async function loginWithFallback(password: string): Promise<{ success: boolean; admin?: Admin; error?: string }> {
+async function loginWithFallback(
+  password: string,
+): Promise<{ success: boolean; admin?: Admin; error?: string }> {
   const matched = LEGACY_ADMIN_SEEDS.find(
-    (seed) => seed.name === 'abhinav' && seed.password === password.trim()
+    (seed) => seed.name === "abhinav" && seed.password === password.trim(),
   );
 
   if (!matched) {
-    return { success: false, error: 'Invalid global admin password' };
+    return { success: false, error: "Invalid global admin password" };
   }
 
-  const admin: Admin = { id: 'global-admin-abhinav', name: 'abhinav' };
+  const admin: Admin = { id: "global-admin-abhinav", name: "abhinav" };
   await saveGlobalSession(admin);
   return { success: true, admin };
 }
@@ -242,10 +291,12 @@ export const globalAuth = {
     return readGlobalSession();
   },
 
-  login: async (password: string): Promise<{ success: boolean; admin?: Admin; error?: string }> => {
+  login: async (
+    password: string,
+  ): Promise<{ success: boolean; admin?: Admin; error?: string }> => {
     if (supabase) {
       const result = await loginWithSupabase(password);
-      if (result.success || result.error !== 'Supabase not configured') {
+      if (result.success || result.error !== "Supabase not configured") {
         return result;
       }
     }
@@ -268,22 +319,27 @@ export const auth = {
 export async function verifyTournamentAdmin(
   tournament: Tournament,
   adminName: string,
-  password: string
+  password: string,
 ): Promise<TournamentAdmin | null> {
   const passwordHash = await hashPassword(password);
   const matched = tournament.admins.find(
     (admin) =>
       admin.name.toLowerCase().trim() === adminName.toLowerCase().trim() &&
-      admin.passwordHash === passwordHash
+      admin.passwordHash === passwordHash,
   );
   if (matched) return matched;
 
-  if (isLegacyTournament(tournament)) {
-    const supabaseMatched = await verifyLegacyAdminWithSupabase(adminName, password);
+  if (normalizeAdminName(adminName) === "abhinav") {
+    const supabaseMatched = await verifyLegacyAdminWithSupabase(
+      adminName,
+      password,
+    );
     if (supabaseMatched) {
       return (
         tournament.admins.find(
-          (admin) => normalizeAdminName(admin.name) === normalizeAdminName(supabaseMatched.name)
+          (admin) =>
+            normalizeAdminName(admin.name) ===
+            normalizeAdminName(supabaseMatched.name),
         ) ?? {
           id: supabaseMatched.id,
           name: supabaseMatched.name,
@@ -293,16 +349,38 @@ export async function verifyTournamentAdmin(
       );
     }
 
+    const seededAbhinav = LEGACY_ADMIN_SEEDS.find(
+      (seed) =>
+        normalizeAdminName(seed.name) === "abhinav" &&
+        seed.password === password.trim(),
+    );
+    if (seededAbhinav) {
+      return (
+        tournament.admins.find(
+          (admin) => normalizeAdminName(admin.name) === "abhinav",
+        ) ?? {
+          id: "default-admin-abhinav",
+          name: "abhinav",
+          passwordHash,
+          createdAt: Date.now(),
+        }
+      );
+    }
+  }
+
+  if (isLegacyTournament(tournament)) {
     const fallback = LEGACY_ADMIN_SEEDS.find(
       (seed) =>
         normalizeAdminName(seed.name) === normalizeAdminName(adminName) &&
-        seed.password === password.trim()
+        seed.password === password.trim(),
     );
 
     if (fallback) {
       return (
         tournament.admins.find(
-          (admin) => normalizeAdminName(admin.name) === normalizeAdminName(fallback.name)
+          (admin) =>
+            normalizeAdminName(admin.name) ===
+            normalizeAdminName(fallback.name),
         ) ?? {
           id: `legacy-admin-${fallback.name}`,
           name: fallback.name,
@@ -318,7 +396,7 @@ export async function verifyTournamentAdmin(
 
 export function appendTournamentAdminAudit(
   tournament: Tournament,
-  entry: Omit<TournamentAdminAudit, 'id' | 'timestamp'>
+  entry: Omit<TournamentAdminAudit, "id" | "timestamp">,
 ): Tournament {
   return {
     ...tournament,
@@ -334,4 +412,4 @@ export function appendTournamentAdminAudit(
 }
 
 export { getUserAgent, fetchIpAddress };
-export type { Admin } from '../types';
+export type { Admin } from "../types";

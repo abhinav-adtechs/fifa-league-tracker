@@ -1,5 +1,5 @@
-import { Match } from '../types';
-import type { LeagueStats } from '../types';
+import { Match } from "../types";
+import type { LeagueStats } from "../types";
 
 /**
  * Compute league-level stats from matches only.
