@@ -7,15 +7,20 @@ import {
 } from "../types";
 import { buildTournamentPlanSummary } from "../utils/createTournamentPlan";
 import {
+  canonicalLeagueKnockoutGroupNames,
   DEFAULT_TOURNAMENT_SETTINGS,
+  flattenParticipantsByCanonicalLeagueGroups,
   getEffectiveGroupCount,
   getTournamentTargetPlayerCount,
   isOpenEnded,
+  tournamentHasExplicitLeagueGroups,
   tournamentTypeLabel,
 } from "../utils/tournaments";
 import {
   AlertCircle,
   AlertTriangle,
+  ArrowDown,
+  ArrowUp,
   CheckCircle2,
   GitBranch,
   History,
@@ -73,6 +78,13 @@ interface TournamentAdminPanelProps {
     teamName: string,
   ) => boolean;
   onShuffleParticipants: () => boolean;
+  onReorderScheduleOrder: (
+    orderedParticipantIds: string[],
+    groupName?: string,
+  ) => boolean;
+  onAssignLeagueKnockoutGroups: (
+    groupByParticipantId: Record<string, string>,
+  ) => boolean;
   canDeleteTournament: boolean;
   onDeleteTournament: () => void | Promise<void>;
 }
@@ -90,6 +102,8 @@ export const TournamentAdminPanel: React.FC<TournamentAdminPanelProps> = ({
   onAddGuestToTournament,
   onAddParticipantToTournament,
   onShuffleParticipants,
+  onReorderScheduleOrder,
+  onAssignLeagueKnockoutGroups,
   canDeleteTournament,
   onDeleteTournament,
 }) => {
@@ -178,6 +192,32 @@ export const TournamentAdminPanel: React.FC<TournamentAdminPanelProps> = ({
   const planningPlayerCount = Math.max(participantCount, structTargetCount);
   const rosterUnlocked =
     isOpenEnded(tournament.type) || tournament.matches.length === 0;
+
+  const scheduleReorderMultiGroup =
+    tournament.type === "LEAGUE_KNOCKOUT" &&
+    tournamentHasExplicitLeagueGroups(tournament);
+
+  const allowedScheduleGroups = useMemo(
+    () =>
+      canonicalLeagueKnockoutGroupNames(
+        participantCount,
+        mergedSettings.groupCount,
+      ),
+    [participantCount, mergedSettings.groupCount],
+  );
+
+  const scheduleMultiGroupRows = useMemo(() => {
+    if (!scheduleReorderMultiGroup) return [];
+    return flattenParticipantsByCanonicalLeagueGroups(
+      tournament.participants,
+      tournament.participants,
+      allowedScheduleGroups,
+    );
+  }, [
+    scheduleReorderMultiGroup,
+    tournament.participants,
+    allowedScheduleGroups,
+  ]);
 
   const availablePoolProfiles = useMemo(() => {
     const taken = new Set(
@@ -615,6 +655,195 @@ export const TournamentAdminPanel: React.FC<TournamentAdminPanelProps> = ({
                 </button>
               </div>
             </div>
+
+            {!isOpenEnded(tournament.type) &&
+              rosterUnlocked &&
+              participantCount >= 2 && (
+                <div className="rounded-xl border border-glass-border bg-glass-light p-4 space-y-4">
+                  <div>
+                    <div className="text-xs font-semibold text-text-secondary uppercase tracking-wider flex items-center gap-2">
+                      <LayoutGrid className="w-3.5 h-3.5 text-accent-blue" />
+                      Schedule order
+                    </div>
+                    <p className="text-[11px] text-text-muted mt-1 leading-relaxed max-w-xl">
+                      {scheduleReorderMultiGroup
+                        ? "Assign each player to a league group and move them up or down within that group. Fixtures update until the first result is recorded."
+                        : "Move players in the list to change round-robin or knockout slot order before the first result is recorded."}
+                    </p>
+                  </div>
+
+                  {scheduleReorderMultiGroup
+                    ? (
+                        <ul className="space-y-1.5">
+                          {scheduleMultiGroupRows.map((p) => {
+                            const rowsInGroup = scheduleMultiGroupRows.filter(
+                              (r) => r.groupName === p.groupName,
+                            );
+                            const index = rowsInGroup.findIndex(
+                              (r) => r.id === p.id,
+                            );
+                            const gn = p.groupName ?? "";
+                            return (
+                              <li
+                                key={p.id}
+                                className="flex flex-wrap sm:flex-nowrap items-center gap-2 rounded-lg border border-glass-border bg-glass-dark/20 px-2.5 py-2"
+                              >
+                                <div className="min-w-0 flex-1 basis-[min(100%,12rem)]">
+                                  <div className="text-sm font-semibold text-text-primary truncate">
+                                    {p.name}
+                                  </div>
+                                  <div className="text-[10px] text-text-muted truncate">
+                                    {p.teamName}
+                                  </div>
+                                </div>
+                                <select
+                                  aria-label={`Group for ${p.name}`}
+                                  value={gn}
+                                  onChange={(e) => {
+                                    const next = Object.fromEntries(
+                                      tournament.participants.map((x) => [
+                                        x.id,
+                                        x.id === p.id
+                                          ? e.target.value
+                                          : (x.groupName ?? "").trim(),
+                                      ]),
+                                    ) as Record<string, string>;
+                                    if (!onAssignLeagueKnockoutGroups(next)) {
+                                      alert("Could not update group assignment.");
+                                    }
+                                  }}
+                                  className="select-field shrink-0 w-full sm:w-[8.25rem] text-xs py-1.5"
+                                >
+                                  {allowedScheduleGroups.map((label) => (
+                                    <option key={label} value={label}>
+                                      {label}
+                                    </option>
+                                  ))}
+                                </select>
+                                <div className="flex flex-col gap-0.5 shrink-0 ml-auto sm:ml-0">
+                                  <button
+                                    type="button"
+                                    title="Move up in group"
+                                    disabled={index <= 0}
+                                    onClick={() => {
+                                      const ids = rowsInGroup.map((r) => r.id);
+                                      const i = ids.indexOf(p.id);
+                                      if (i <= 0) return;
+                                      const next = [...ids];
+                                      [next[i - 1], next[i]] = [
+                                        next[i]!,
+                                        next[i - 1]!,
+                                      ];
+                                      if (!onReorderScheduleOrder(next, gn)) {
+                                        alert("Could not update order.");
+                                      }
+                                    }}
+                                    className="w-8 h-7 rounded-md border border-glass-border bg-glass-light flex items-center justify-center text-text-muted hover:text-text-primary hover:border-glass-border-hover disabled:opacity-25 disabled:cursor-not-allowed transition-all"
+                                  >
+                                    <ArrowUp className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    title="Move down in group"
+                                    disabled={
+                                      index < 0 ||
+                                      index >= rowsInGroup.length - 1
+                                    }
+                                    onClick={() => {
+                                      const ids = rowsInGroup.map((r) => r.id);
+                                      const i = ids.indexOf(p.id);
+                                      if (i < 0 || i >= ids.length - 1) return;
+                                      const next = [...ids];
+                                      [next[i], next[i + 1]] = [
+                                        next[i + 1]!,
+                                        next[i]!,
+                                      ];
+                                      if (!onReorderScheduleOrder(next, gn)) {
+                                        alert("Could not update order.");
+                                      }
+                                    }}
+                                    className="w-8 h-7 rounded-md border border-glass-border bg-glass-light flex items-center justify-center text-text-muted hover:text-text-primary hover:border-glass-border-hover disabled:opacity-25 disabled:cursor-not-allowed transition-all"
+                                  >
+                                    <ArrowDown className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )
+                    : (
+                        <ul className="space-y-1.5">
+                          {tournament.participants.map((p, index) => (
+                            <li
+                              key={p.id}
+                              className="flex items-center gap-2 rounded-lg border border-glass-border bg-glass-dark/20 px-2.5 py-2"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="text-sm font-semibold text-text-primary truncate">
+                                  {p.name}
+                                </div>
+                                <div className="text-[10px] text-text-muted truncate">
+                                  {p.teamName}
+                                </div>
+                              </div>
+                              <div className="flex flex-col gap-0.5 shrink-0">
+                                <button
+                                  type="button"
+                                  title="Move up"
+                                  disabled={index === 0}
+                                  onClick={() => {
+                                    const ids = tournament.participants.map(
+                                      (r) => r.id,
+                                    );
+                                    const i = ids.indexOf(p.id);
+                                    if (i <= 0) return;
+                                    const next = [...ids];
+                                    [next[i - 1], next[i]] = [
+                                      next[i]!,
+                                      next[i - 1]!,
+                                    ];
+                                    if (!onReorderScheduleOrder(next)) {
+                                      alert("Could not update order.");
+                                    }
+                                  }}
+                                  className="w-8 h-7 rounded-md border border-glass-border bg-glass-light flex items-center justify-center text-text-muted hover:text-text-primary hover:border-glass-border-hover disabled:opacity-25 disabled:cursor-not-allowed transition-all"
+                                >
+                                  <ArrowUp className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  title="Move down"
+                                  disabled={
+                                    index ===
+                                    tournament.participants.length - 1
+                                  }
+                                  onClick={() => {
+                                    const ids = tournament.participants.map(
+                                      (r) => r.id,
+                                    );
+                                    const i = ids.indexOf(p.id);
+                                    if (i < 0 || i >= ids.length - 1) return;
+                                    const next = [...ids];
+                                    [next[i], next[i + 1]] = [
+                                      next[i + 1]!,
+                                      next[i]!,
+                                    ];
+                                    if (!onReorderScheduleOrder(next)) {
+                                      alert("Could not update order.");
+                                    }
+                                  }}
+                                  className="w-8 h-7 rounded-md border border-glass-border bg-glass-light flex items-center justify-center text-text-muted hover:text-text-primary hover:border-glass-border-hover disabled:opacity-25 disabled:cursor-not-allowed transition-all"
+                                >
+                                  <ArrowDown className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                </div>
+              )}
           </div>
         </div>
       )}

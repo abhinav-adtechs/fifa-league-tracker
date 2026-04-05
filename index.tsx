@@ -1,5 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { HashRouter, Route, Routes } from "react-router-dom";
 import App from "./App";
 
 const rootElement = document.getElementById("root");
@@ -10,6 +11,11 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <App />
+    <HashRouter>
+      <Routes>
+        <Route path="/" element={<App />} />
+        <Route path="/t/:tournamentId" element={<App />} />
+      </Routes>
+    </HashRouter>
   </React.StrictMode>,
 );

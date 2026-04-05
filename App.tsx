@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   CreateTournamentModal,
   type CreateTournamentDraft,
@@ -59,6 +60,9 @@ import {
   rebuildTournamentFixturesFromStructure,
   profileToParticipant,
   recordFixtureResult,
+  assignLeagueKnockoutParticipantGroupsBeforeFirstMatch,
+  reorderTournamentGroupRosterOrderBeforeFirstMatch,
+  reorderTournamentParticipantsBeforeFirstMatch,
   shuffleTournamentParticipantOrder,
   recordOpenMatch,
   syncLeagueKnockoutStage,
@@ -396,8 +400,6 @@ function applyTheme(key: ThemeKey) {
   }
 }
 
-type AppView = "HOME" | "TOURNAMENT";
-
 interface TournamentAdminSessionMap {
   [tournamentId: string]: Admin;
 }
@@ -432,11 +434,14 @@ function getWorkspaceTabs(tournament: Tournament): Array<{
 }
 
 const App: React.FC = () => {
+  const navigate = useNavigate();
+  const { tournamentId: urlTournamentId } = useParams<{
+    tournamentId?: string;
+  }>();
   const [platform, setPlatform] = useState<PlatformState | null>(null);
   const [activeTournamentId, setActiveTournamentId] = useState<string | null>(
     null,
   );
-  const [view, setView] = useState<AppView>("TOURNAMENT");
   const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>("TABLE");
   const [standingsView, setStandingsView] =
     useState<StandingsView>("NORMALISED");
@@ -493,25 +498,11 @@ const App: React.FC = () => {
       };
       await db.savePlatformState(initialPlatform);
 
-      const initialTournamentId =
-        initialPlatform.lastOpenedTournamentId ??
-        initialPlatform.tournaments[0]?.id ??
-        null;
-      const initialTournament =
-        initialPlatform.tournaments.find(
-          (tournament) => tournament.id === initialTournamentId,
-        ) ??
-        initialPlatform.tournaments[0] ??
-        null;
-
       setPlatform(initialPlatform);
-      setActiveTournamentId(initialTournamentId);
-      setWorkspaceTab(getDefaultWorkspaceTab(initialTournament));
       setGlobalAdmin(storedGlobalAdmin);
       setTournamentSessions(
         storedSessionsRaw ? JSON.parse(storedSessionsRaw) : {},
       );
-      setView(initialPlatform.lastOpenedTournamentId ? "TOURNAMENT" : "HOME");
       setLoading(false);
     };
 
@@ -575,18 +566,42 @@ const App: React.FC = () => {
     });
   };
 
+  useEffect(() => {
+    if (!platform) return;
+
+    if (urlTournamentId) {
+      const exists = platform.tournaments.some(
+        (t) => t.id === urlTournamentId,
+      );
+      if (!exists) {
+        navigate("/", { replace: true });
+        return;
+      }
+      setActiveTournamentId((prev) =>
+        prev === urlTournamentId ? prev : urlTournamentId,
+      );
+      commitPlatform((current) => {
+        if (current.lastOpenedTournamentId === urlTournamentId) {
+          return current;
+        }
+        return { ...current, lastOpenedTournamentId: urlTournamentId };
+      });
+    } else {
+      const fallback =
+        platform.lastOpenedTournamentId ??
+        platform.tournaments[0]?.id ??
+        null;
+      setActiveTournamentId((prev) => (prev === fallback ? prev : fallback));
+    }
+  }, [platform, urlTournamentId, navigate]);
+
   const openTournament = (tournamentId: string) => {
-    setActiveTournamentId(tournamentId);
-    setView("TOURNAMENT");
     const targetTournament =
       platform?.tournaments.find(
         (tournament) => tournament.id === tournamentId,
       ) ?? null;
     setWorkspaceTab(getDefaultWorkspaceTab(targetTournament));
-    commitPlatform((current) => ({
-      ...current,
-      lastOpenedTournamentId: tournamentId,
-    }));
+    navigate(`/t/${tournamentId}`);
   };
 
   const updateActiveTournament = (
@@ -782,10 +797,9 @@ const App: React.FC = () => {
 
     setPlatform(nextPlatform);
     await db.savePlatformState(nextPlatform);
-    setActiveTournamentId(tournament.id);
-    setView("TOURNAMENT");
     setWorkspaceTab(getDefaultWorkspaceTab(tournament));
     setShowCreateTournamentModal(false);
+    navigate(`/t/${tournament.id}`);
   };
 
   const handleTournamentLogin = async (adminName: string, password: string) => {
@@ -896,7 +910,9 @@ const App: React.FC = () => {
         updatedAt: Date.now(),
       };
 
-      const rebuilt = rebuildTournamentFixturesFromStructure(next);
+      const rebuilt = rebuildTournamentFixturesFromStructure(next, {
+        regroupLeagueKnockout: draft.type === "LEAGUE_KNOCKOUT",
+      });
       didApply = true;
       return {
         ...current,
@@ -968,13 +984,12 @@ const App: React.FC = () => {
     await db.savePlatformState(nextPlatform);
 
     if (remaining.length === 0) {
-      setActiveTournamentId(null);
-      setView("HOME");
+      navigate("/");
     } else {
-      setActiveTournamentId(nextLastOpenedId);
       const nextTournament =
         remaining.find((t) => t.id === nextLastOpenedId) ?? remaining[0];
       setWorkspaceTab(getDefaultWorkspaceTab(nextTournament));
+      navigate(`/t/${nextLastOpenedId}`);
     }
   };
 
@@ -1196,6 +1211,74 @@ const App: React.FC = () => {
       if (!isOpenEnded(next.type)) {
         next = rebuildTournamentFixturesFromStructure(next);
       }
+      ok = true;
+      return {
+        ...current,
+        tournaments: current.tournaments.map((t) =>
+          t.id === activeTournamentId ? syncLeagueKnockoutStage(next) : t,
+        ),
+      };
+    });
+    return ok;
+  };
+
+  const handleReorderScheduleOrder = (
+    orderedParticipantIds: string[],
+    groupName?: string,
+  ): boolean => {
+    if (!activeTournamentId) return false;
+    let ok = false;
+    commitPlatform((current) => {
+      if (!current) return current;
+      const tournament = current.tournaments.find(
+        (t) => t.id === activeTournamentId,
+      );
+      if (!tournament || tournament.matches.length > 0) {
+        return current;
+      }
+
+      const next = groupName
+        ? reorderTournamentGroupRosterOrderBeforeFirstMatch(
+            tournament,
+            groupName,
+            orderedParticipantIds,
+          )
+        : reorderTournamentParticipantsBeforeFirstMatch(
+            tournament,
+            orderedParticipantIds,
+          );
+
+      if (!next) return current;
+      ok = true;
+      return {
+        ...current,
+        tournaments: current.tournaments.map((t) =>
+          t.id === activeTournamentId ? syncLeagueKnockoutStage(next) : t,
+        ),
+      };
+    });
+    return ok;
+  };
+
+  const handleAssignLeagueKnockoutGroups = (
+    groupByParticipantId: Record<string, string>,
+  ): boolean => {
+    if (!activeTournamentId) return false;
+    let ok = false;
+    commitPlatform((current) => {
+      if (!current) return current;
+      const tournament = current.tournaments.find(
+        (t) => t.id === activeTournamentId,
+      );
+      if (!tournament || tournament.matches.length > 0) {
+        return current;
+      }
+
+      const next = assignLeagueKnockoutParticipantGroupsBeforeFirstMatch(
+        tournament,
+        groupByParticipantId,
+      );
+      if (!next) return current;
       ok = true;
       return {
         ...current,
@@ -1514,11 +1597,35 @@ const App: React.FC = () => {
     );
   }
 
-  if (!platform || !activeTournament) {
+  if (!platform) {
     return (
       <div className="min-h-screen flex items-center justify-center text-text-secondary">
         <div className="glass-card px-6 py-5 text-sm font-semibold">
           Unable to load tournament data.
+        </div>
+      </div>
+    );
+  }
+
+  const tournamentFromUrl = urlTournamentId
+    ? platform.tournaments.find((t) => t.id === urlTournamentId)
+    : null;
+
+  if (urlTournamentId) {
+    if (!tournamentFromUrl || activeTournament?.id !== urlTournamentId) {
+      return (
+        <div className="min-h-screen flex items-center justify-center text-text-secondary">
+          <div className="glass-card px-6 py-5 text-sm font-semibold">
+            Opening tournament…
+          </div>
+        </div>
+      );
+    }
+  } else if (platform.tournaments.length > 0 && !activeTournament) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-text-secondary">
+        <div className="glass-card px-6 py-5 text-sm font-semibold">
+          Loading tournament platform...
         </div>
       </div>
     );
@@ -1542,13 +1649,14 @@ const App: React.FC = () => {
                   Tournament Platform
                 </div>
                 <div className="text-sm sm:text-base font-bold text-text-primary truncate">
-                  {activeTournament.name}
+                  {activeTournament?.name ?? "Tournament Hub"}
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
               <button
+                type="button"
                 onClick={cycleTheme}
                 title={`Theme: ${THEME_LABELS[theme]} — click to cycle`}
                 className="relative w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-200 group"
@@ -1568,14 +1676,18 @@ const App: React.FC = () => {
                   {THEME_LABELS[theme]}
                 </span>
               </button>
+              {urlTournamentId ? (
+                <button
+                  type="button"
+                  onClick={() => navigate("/")}
+                  className="btn-ghost flex items-center gap-2 text-xs sm:text-sm"
+                >
+                  <Home className="w-4 h-4" />
+                  <span className="hidden sm:inline">Tournaments</span>
+                </button>
+              ) : null}
               <button
-                onClick={() => setView("HOME")}
-                className="btn-ghost flex items-center gap-2 text-xs sm:text-sm"
-              >
-                <Home className="w-4 h-4" />
-                <span className="hidden sm:inline">Tournaments</span>
-              </button>
-              <button
+                type="button"
                 onClick={() => {
                   if (!currentTournamentAdmin) {
                     alert(
@@ -1588,6 +1700,7 @@ const App: React.FC = () => {
                   setShowRecordResultModal(true);
                 }}
                 disabled={
+                  !activeTournament ||
                   !currentTournamentAdmin ||
                   (isOpenEnded(activeTournament.type)
                     ? activeTournament.participants.length < 2
@@ -1607,86 +1720,102 @@ const App: React.FC = () => {
       <section className="relative overflow-hidden border-b border-glass-border">
         <div className="absolute inset-0 bg-gradient-to-b from-surface-0 via-surface-1/50 to-surface-0"></div>
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-            <div className="min-w-0">
-              <div className="flex items-center gap-3 mb-2">
-                <img
-                  src={activeTournament.trophyImage || getDefaultTrophyImage()}
-                  alt={`${activeTournament.name} trophy`}
-                  className="w-14 h-16 sm:w-16 sm:h-20 object-contain shrink-0 drop-shadow-[0_12px_24px_rgba(0,0,0,0.18)]"
-                />
-                <span className="text-[11px] font-mono font-medium text-accent-green uppercase tracking-widest">
-                  {tournamentTypeLabel(activeTournament.type)}
-                </span>
-              </div>
-              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-text-primary leading-[1.1]">
-                {activeTournament.name}
-              </h1>
-              <p className="mt-3 text-sm text-text-secondary max-w-2xl leading-relaxed">
-                {isOpenEnded(activeTournament.type)
-                  ? "This is an open-ended league. Results can be recorded at any time and the table updates live without fixtures."
-                  : `Tournament schedule, fixtures, and progress are scoped to this workspace. ${activeTournament.participants.length} players are currently registered.`}
-              </p>
-            </div>
+          {activeTournament ? (
+            <>
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-3 mb-2">
+                    <img
+                      src={
+                        activeTournament.trophyImage || getDefaultTrophyImage()
+                      }
+                      alt={`${activeTournament.name} trophy`}
+                      className="w-14 h-16 sm:w-16 sm:h-20 object-contain shrink-0 drop-shadow-[0_12px_24px_rgba(0,0,0,0.18)]"
+                    />
+                    <span className="text-[11px] font-mono font-medium text-accent-green uppercase tracking-widest">
+                      {tournamentTypeLabel(activeTournament.type)}
+                    </span>
+                  </div>
+                  <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-text-primary leading-[1.1]">
+                    {activeTournament.name}
+                  </h1>
+                  <p className="mt-3 text-sm text-text-secondary max-w-2xl leading-relaxed">
+                    {isOpenEnded(activeTournament.type)
+                      ? "This is an open-ended league. Results can be recorded at any time and the table updates live without fixtures."
+                      : `Tournament schedule, fixtures, and progress are scoped to this workspace. ${activeTournament.participants.length} players are currently registered.`}
+                  </p>
+                </div>
 
-            <div className="grid sm:grid-cols-3 gap-3 min-w-0 lg:min-w-[420px]">
-              <StatCard
-                label="Players"
-                value={String(activeTournament.participants.length)}
-                icon={Users}
-              />
-              <StatCard
-                label="Matches"
-                value={String(activeTournament.matches.length)}
-                icon={Swords}
-              />
+                <div className="grid sm:grid-cols-3 gap-3 min-w-0 lg:min-w-[420px]">
+                  <StatCard
+                    label="Players"
+                    value={String(activeTournament.participants.length)}
+                    icon={Users}
+                  />
+                  <StatCard
+                    label="Matches"
+                    value={String(activeTournament.matches.length)}
+                    icon={Swords}
+                  />
+                  {progress ? (
+                    <StatCard
+                      label="Games Left"
+                      value={String(progress.remainingMatches)}
+                      icon={TimerReset}
+                    />
+                  ) : (
+                    <StatCard label="Mode" value="Open" icon={FolderKanban} />
+                  )}
+                </div>
+              </div>
+
               {progress ? (
-                <StatCard
-                  label="Games Left"
-                  value={String(progress.remainingMatches)}
-                  icon={TimerReset}
-                />
-              ) : (
-                <StatCard label="Mode" value="Open" icon={FolderKanban} />
-              )}
-            </div>
-          </div>
-
-          {progress && (
-            <div className="glass-card mt-6 p-4 sm:p-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-                <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-                    Tournament Progress
+                <div className="glass-card mt-6 p-4 sm:p-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+                    <div>
+                      <div className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                        Tournament Progress
+                      </div>
+                      <div className="text-lg font-bold text-text-primary">
+                        {progress.completionPercent}% complete
+                      </div>
+                    </div>
+                    <div className="text-sm text-text-secondary">
+                      {progress.remainingMatches} matches left
+                    </div>
                   </div>
-                  <div className="text-lg font-bold text-text-primary">
-                    {progress.completionPercent}% complete
+                  <div className="w-full h-2 rounded-full bg-glass-light overflow-hidden">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${progress.completionPercent}%`,
+                        background:
+                          "linear-gradient(135deg, var(--accent), var(--accent-2))",
+                      }}
+                    />
+                  </div>
+                  <div className="text-[11px] text-text-muted mt-2">
+                    League and knockout progress update automatically as results
+                    come in.
                   </div>
                 </div>
-                <div className="text-sm text-text-secondary">
-                  {progress.remainingMatches} matches left
-                </div>
-              </div>
-              <div className="w-full h-2 rounded-full bg-glass-light overflow-hidden">
-                <div
-                  className="h-full rounded-full"
-                  style={{
-                    width: `${progress.completionPercent}%`,
-                    background:
-                      "linear-gradient(135deg, var(--accent), var(--accent-2))",
-                  }}
-                />
-              </div>
-              <div className="text-[11px] text-text-muted mt-2">
-                League and knockout progress update automatically as results
-                come in.
-              </div>
+              ) : null}
+            </>
+          ) : (
+            <div className="text-center py-4 sm:py-6">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-text-primary">
+                Tournament Hub
+              </h1>
+              <p className="mt-2 text-sm text-text-secondary max-w-md mx-auto">
+                Create a tournament from the list below to start tracking
+                fixtures and standings.
+              </p>
             </div>
           )}
         </div>
       </section>
 
-      {view === "HOME" ? (
+      {!urlTournamentId ? (
         <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
           <PlatformHome
             tournaments={platform.tournaments}
@@ -1816,6 +1945,8 @@ const App: React.FC = () => {
                 onAddGuestToTournament={handleAddGuestToTournament}
                 onAddParticipantToTournament={handleAddParticipant}
                 onShuffleParticipants={handleShuffleParticipants}
+                onReorderScheduleOrder={handleReorderScheduleOrder}
+                onAssignLeagueKnockoutGroups={handleAssignLeagueKnockoutGroups}
                 canDeleteTournament={Boolean(
                   globalAdmin || currentTournamentAdmin,
                 )}

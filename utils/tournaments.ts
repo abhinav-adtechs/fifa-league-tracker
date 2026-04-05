@@ -447,6 +447,83 @@ export function generateLeagueKnockoutFixtures(
   };
 }
 
+/** Unique non-empty league group labels from participants, stable display order. */
+export function sortedExplicitLeagueGroupNames(
+  participants: TournamentParticipant[],
+): string[] {
+  return Array.from(
+    new Set(
+      participants
+        .map((p) => p.groupName?.trim())
+        .filter((g): g is string => Boolean(g)),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * League + knockout with multiple groups: every player has a group assigned.
+ * When true, fixture rebuilds keep those assignments and use roster order within each group.
+ */
+export function tournamentHasExplicitLeagueGroups(tournament: Tournament): boolean {
+  if (tournament.type !== "LEAGUE_KNOCKOUT") return false;
+  const n = tournament.participants.length;
+  if (n < 2) return false;
+  const effective = getEffectiveGroupCount(
+    n,
+    tournament.settings.groupCount ?? 1,
+  );
+  if (effective <= 1) return false;
+  return tournament.participants.every(
+    (p) => typeof p.groupName === "string" && p.groupName.trim().length > 0,
+  );
+}
+
+export function generateLeagueKnockoutFixturesWithExistingGroups(
+  participants: TournamentParticipant[],
+  matchesPerOpponent: number,
+): { participants: TournamentParticipant[]; fixtures: TournamentFixture[] } {
+  const groupNames = sortedExplicitLeagueGroupNames(participants);
+
+  if (groupNames.length === 0) {
+    const flat = participants.map((p, i) => ({
+      ...p,
+      seed: i + 1,
+      groupName: undefined,
+    }));
+    return {
+      participants: flat,
+      fixtures: generateLeagueFixtures(flat, matchesPerOpponent),
+    };
+  }
+
+  const fixtures: TournamentFixture[] = [];
+  let roundOffset = 0;
+
+  for (const groupName of groupNames) {
+    const groupParticipants = participants.filter(
+      (p) => p.groupName === groupName,
+    );
+    const groupFixtures = generateLeagueFixtures(
+      groupParticipants,
+      matchesPerOpponent,
+    ).map((fixture) => ({
+      ...fixture,
+      groupName,
+      roundIndex: fixture.roundIndex + roundOffset,
+    }));
+
+    fixtures.push(...groupFixtures);
+    const maxRoundIndex = groupFixtures.reduce(
+      (max, fixture) => Math.max(max, fixture.roundIndex),
+      roundOffset - 1,
+    );
+    roundOffset = maxRoundIndex + 1;
+  }
+
+  const withSeeds = participants.map((p, i) => ({ ...p, seed: i + 1 }));
+  return { participants: withSeeds, fixtures };
+}
+
 function nextPowerOfTwo(value: number): number {
   let power = 1;
   while (power < value) power *= 2;
@@ -1024,6 +1101,154 @@ export function getTournamentTargetPlayerCount(tournament: Tournament): number {
   return Math.max(2, n);
 }
 
+/**
+ * Reorder the full squad for schedule generation (league table or knockout bracket).
+ * Not used for multi-group league+knockout — use reorderTournamentGroupRosterOrderBeforeFirstMatch per group.
+ */
+export function reorderTournamentParticipantsBeforeFirstMatch(
+  tournament: Tournament,
+  orderedParticipantIds: string[],
+): Tournament | null {
+  if (!isTournamentBeforeFirstMatch(tournament)) return null;
+  if (tournament.type === "OPEN_LEAGUE") return null;
+  if (tournament.participants.length < 2) return null;
+  if (
+    tournament.type === "LEAGUE_KNOCKOUT" &&
+    tournamentHasExplicitLeagueGroups(tournament)
+  ) {
+    return null;
+  }
+
+  const idSet = new Set(tournament.participants.map((p) => p.id));
+  if (orderedParticipantIds.length !== idSet.size) return null;
+  if (!orderedParticipantIds.every((id) => idSet.has(id))) return null;
+
+  const map = new Map(tournament.participants.map((p) => [p.id, p]));
+  const reordered = orderedParticipantIds.map((id) => map.get(id)!);
+
+  return rebuildTournamentFixturesFromStructure({
+    ...tournament,
+    participants: reordered,
+    updatedAt: Date.now(),
+  });
+}
+
+/** Reorder players inside one league group; keeps group assignments. Only before the first match. */
+/**
+ * Flatten participants into canonical group order (Group A, then B, …).
+ * Within each group, order follows the first appearance in `baseOrder`.
+ */
+export function flattenParticipantsByCanonicalLeagueGroups(
+  baseOrder: TournamentParticipant[],
+  relabeled: TournamentParticipant[],
+  canonicalGroupOrder: string[],
+): TournamentParticipant[] {
+  const byId = new Map(relabeled.map((p) => [p.id, p]));
+  const out: TournamentParticipant[] = [];
+  for (const gn of canonicalGroupOrder) {
+    for (const p of baseOrder) {
+      const q = byId.get(p.id);
+      if (q && q.groupName === gn) out.push(q);
+    }
+  }
+  return out;
+}
+
+/** Allowed league group labels for the current squad size and settings. */
+export function canonicalLeagueKnockoutGroupNames(
+  participantCount: number,
+  requestedGroupCount: number,
+): string[] {
+  const effective = getEffectiveGroupCount(
+    participantCount,
+    requestedGroupCount,
+  );
+  return Array.from({ length: effective }, (_, i) => getGroupName(i));
+}
+
+/**
+ * Reassign league groups (swap or move players between Group A / B / …) before the first match.
+ */
+export function assignLeagueKnockoutParticipantGroupsBeforeFirstMatch(
+  tournament: Tournament,
+  groupByParticipantId: Record<string, string>,
+): Tournament | null {
+  if (!isTournamentBeforeFirstMatch(tournament)) return null;
+  if (tournament.type !== "LEAGUE_KNOCKOUT") return null;
+
+  const n = tournament.participants.length;
+  const canonical = canonicalLeagueKnockoutGroupNames(
+    n,
+    tournament.settings.groupCount ?? 1,
+  );
+  if (canonical.length <= 1) return null;
+
+  const idSet = new Set(tournament.participants.map((p) => p.id));
+  const keys = Object.keys(groupByParticipantId);
+  if (keys.length !== idSet.size || !keys.every((k) => idSet.has(k))) {
+    return null;
+  }
+
+  const allowed = new Set(canonical);
+  const nextRelabeled: TournamentParticipant[] = [];
+  for (const p of tournament.participants) {
+    const raw = groupByParticipantId[p.id];
+    const g = typeof raw === "string" ? raw.trim() : "";
+    if (!allowed.has(g)) return null;
+    nextRelabeled.push({ ...p, groupName: g });
+  }
+
+  const merged = flattenParticipantsByCanonicalLeagueGroups(
+    tournament.participants,
+    nextRelabeled,
+    canonical,
+  );
+
+  return rebuildTournamentFixturesFromStructure({
+    ...tournament,
+    participants: merged,
+    updatedAt: Date.now(),
+  });
+}
+
+export function reorderTournamentGroupRosterOrderBeforeFirstMatch(
+  tournament: Tournament,
+  groupName: string,
+  orderedParticipantIds: string[],
+): Tournament | null {
+  if (!isTournamentBeforeFirstMatch(tournament)) return null;
+  if (tournament.type !== "LEAGUE_KNOCKOUT") return null;
+  if (!tournamentHasExplicitLeagueGroups(tournament)) return null;
+
+  const gn = groupName.trim();
+  const inGroup = tournament.participants.filter((p) => p.groupName === gn);
+  const idSet = new Set(inGroup.map((p) => p.id));
+  if (orderedParticipantIds.length !== idSet.size) return null;
+  if (!orderedParticipantIds.every((id) => idSet.has(id))) return null;
+
+  const map = new Map(tournament.participants.map((p) => [p.id, p]));
+  const reorderedGroup = orderedParticipantIds.map((id) => map.get(id)!);
+
+  let inserted = false;
+  const merged: TournamentParticipant[] = [];
+  for (const p of tournament.participants) {
+    if (p.groupName === gn) {
+      if (!inserted) {
+        merged.push(...reorderedGroup);
+        inserted = true;
+      }
+      continue;
+    }
+    merged.push(p);
+  }
+
+  return rebuildTournamentFixturesFromStructure({
+    ...tournament,
+    participants: merged,
+    updatedAt: Date.now(),
+  });
+}
+
 /** Randomize participant order and re-seed; use before first match. */
 export function shuffleTournamentParticipantOrder(
   participants: TournamentParticipant[],
@@ -1048,6 +1273,7 @@ export function shuffleTournamentParticipantOrder(
  */
 export function rebuildTournamentFixturesFromStructure(
   tournament: Tournament,
+  options?: { regroupLeagueKnockout?: boolean },
 ): Tournament {
   if (tournament.type === "OPEN_LEAGUE") {
     return {
@@ -1082,13 +1308,26 @@ export function rebuildTournamentFixturesFromStructure(
     }));
     fixtures = createKnockoutFixtures(participants.map((p) => p.id));
   } else if (tournament.type === "LEAGUE_KNOCKOUT") {
-    const setup = generateLeagueKnockoutFixtures(
-      participants,
-      tournament.settings.matchesPerOpponent,
-      tournament.settings.groupCount,
-    );
-    participants = setup.participants;
-    fixtures = setup.fixtures;
+    const tempTournament: Tournament = { ...tournament, participants };
+    const useExistingGroups =
+      !options?.regroupLeagueKnockout &&
+      tournamentHasExplicitLeagueGroups(tempTournament);
+    if (useExistingGroups) {
+      const setup = generateLeagueKnockoutFixturesWithExistingGroups(
+        participants,
+        tournament.settings.matchesPerOpponent,
+      );
+      participants = setup.participants;
+      fixtures = setup.fixtures;
+    } else {
+      const setup = generateLeagueKnockoutFixtures(
+        participants,
+        tournament.settings.matchesPerOpponent,
+        tournament.settings.groupCount,
+      );
+      participants = setup.participants;
+      fixtures = setup.fixtures;
+    }
   }
 
   return {
