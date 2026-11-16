@@ -28,13 +28,10 @@ CREATE TABLE IF NOT EXISTS admin_login_audit (
   user_agent TEXT
 );
 
--- Step 4: Insert admin passwords (bcrypt via pgcrypto)
-INSERT INTO admin_passwords (name, password_hash) VALUES
-  ('manan',   crypt('football', gen_salt('bf'))),
-  ('abhinav', crypt('champion', gen_salt('bf'))),
-  ('sagar',   crypt('defender', gen_salt('bf'))),
-  ('karan',   crypt('midfield', gen_salt('bf'))),
-  ('mukul',   crypt('killerindiafc', gen_salt('bf')));
+-- Step 4: Keep both tables private. The verify_admin_password RPC below is
+-- SECURITY DEFINER, so it still reads admin_passwords with RLS on.
+ALTER TABLE admin_passwords ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admin_login_audit ENABLE ROW LEVEL SECURITY;
 
 -- Step 5: Create RPC function to verify password
 -- Drop function if it exists first
@@ -82,13 +79,6 @@ FROM admin_login_audit
 GROUP BY admin_name_snapshot;
 
 -- ============================================
--- PASSWORD REFERENCE (KEEP THIS SECURE!)
--- ============================================
--- manan:   football
--- abhinav: champion
--- sagar:   defender
--- karan:   midfield
--- mukul:   killerindiafc
--- ============================================
--- After running this script, DELETE or SECURE this file!
+-- Next: add each admin with sql/set_admin_password.sql.
+-- Never commit real passwords to this repository.
 -- ============================================

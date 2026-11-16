@@ -14,7 +14,7 @@ import { TournamentSquad } from "./components/TournamentSquad";
 import {
   appendTournamentAdminAudit,
   buildDefaultTournamentAdmins,
-  buildSeedTournamentAdmins,
+  buildLegacyTournamentAdmins,
   globalAuth,
   hashPassword,
   reconcilePlatformAdmins,
@@ -471,19 +471,18 @@ const App: React.FC = () => {
 
       let initialPlatform = storedPlatform;
       if (!initialPlatform) {
-        const [legacyPlayers, legacyMatches, seededAdmins] = await Promise.all([
+        const [legacyPlayers, legacyMatches] = await Promise.all([
           db.getLegacyPlayers(),
           db.getLegacyMatches(),
-          buildSeedTournamentAdmins(),
         ]);
         initialPlatform = createPlatformFromLegacy(
           legacyPlayers,
           legacyMatches,
-          seededAdmins,
+          buildLegacyTournamentAdmins(),
         );
       }
 
-      const reconciledPlatform = await reconcilePlatformAdmins(initialPlatform);
+      const reconciledPlatform = reconcilePlatformAdmins(initialPlatform);
       initialPlatform = {
         ...reconciledPlatform,
         tournaments: reconciledPlatform.tournaments.map((tournament) =>
@@ -745,7 +744,7 @@ const App: React.FC = () => {
       return;
     }
 
-    const admins = await buildDefaultTournamentAdmins();
+    const admins = buildDefaultTournamentAdmins();
 
     const leagueKnockoutSetup =
       draft.type === "LEAGUE_KNOCKOUT"

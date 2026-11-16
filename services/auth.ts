@@ -21,16 +21,15 @@ export interface LoginAuditEntry {
 }
 
 const GLOBAL_AUTH_STORAGE_KEY = "global_admin_auth";
+const GLOBAL_ADMIN_NAME = "abhinav";
 const LEGACY_TOURNAMENT_ID = "superjoin-fc26-league";
 const LEGACY_TOURNAMENT_NAME = "superjoin fc26 league";
 
-export const LEGACY_ADMIN_SEEDS = [
-  { name: "manan", password: "football" },
-  { name: "abhinav", password: "champion" },
-  { name: "sagar", password: "defender" },
-  { name: "karan", password: "midfield" },
-  { name: "mukul", password: "killerindiafc" },
-];
+// Admins of the original league. Their passwords live only in Supabase
+// (`admin_passwords`, bcrypt), so their tournament entries carry no local hash
+// and are verified through the `verify_admin_password` RPC.
+const LEGACY_ADMIN_NAMES = ["manan", "abhinav", "sagar", "karan", "mukul"];
+const SEEDED_ADMIN_ID_PREFIX = "seed-admin-";
 
 function getUserAgent(): string {
   if (Capacitor.isNativePlatform()) {
@@ -57,24 +56,19 @@ async function fetchIpAddress(): Promise<string | null> {
     .catch(() => null);
 }
 
-export async function buildSeedTournamentAdmins(): Promise<TournamentAdmin[]> {
+export function buildLegacyTournamentAdmins(): TournamentAdmin[] {
   const now = Date.now();
-  return Promise.all(
-    LEGACY_ADMIN_SEEDS.map(async (seed, index) => ({
-      id: `seed-admin-${index}-${seed.name}`,
-      name: seed.name,
-      passwordHash: await hashPassword(seed.password),
-      createdAt: now + index,
-    })),
-  );
+  return LEGACY_ADMIN_NAMES.map((name, index) => ({
+    id: `${SEEDED_ADMIN_ID_PREFIX}${index}-${name}`,
+    name,
+    passwordHash: "",
+    createdAt: now + index,
+  }));
 }
 
-export async function buildDefaultTournamentAdmins(): Promise<
-  TournamentAdmin[]
-> {
-  const seededAdmins = await buildSeedTournamentAdmins();
-  return seededAdmins.filter(
-    (admin) => normalizeAdminName(admin.name) === "abhinav",
+export function buildDefaultTournamentAdmins(): TournamentAdmin[] {
+  return buildLegacyTournamentAdmins().filter(
+    (admin) => admin.name === GLOBAL_ADMIN_NAME,
   );
 }
 
@@ -89,47 +83,37 @@ function isLegacyTournament(tournament: Tournament): boolean {
   );
 }
 
-export async function reconcileLegacyTournamentAdmins(
+// Older builds stored SHA-256 hashes of hard-coded passwords for these admins
+// in the shared platform state. Clearing them means only Supabase can verify them.
+function isSupabaseOnlyAdmin(
   tournament: Tournament,
-): Promise<Tournament> {
-  if (!isLegacyTournament(tournament)) {
-    return tournament;
-  }
-
-  const seededAdmins = await buildSeedTournamentAdmins();
-  const seedNameSet = new Set(
-    seededAdmins.map((admin) => normalizeAdminName(admin.name)),
+  admin: TournamentAdmin,
+): boolean {
+  return (
+    admin.id.startsWith(SEEDED_ADMIN_ID_PREFIX) ||
+    (isLegacyTournament(tournament) &&
+      LEGACY_ADMIN_NAMES.includes(normalizeAdminName(admin.name)))
   );
-  const preservedAdmins = tournament.admins.filter(
-    (admin) => !seedNameSet.has(normalizeAdminName(admin.name)),
+}
+
+function reconcileTournamentAdmins(tournament: Tournament): Tournament {
+  const existingNames = new Set(
+    tournament.admins.map((admin) => normalizeAdminName(admin.name)),
+  );
+  const missingLegacyAdmins = isLegacyTournament(tournament)
+    ? buildLegacyTournamentAdmins().filter(
+        (admin) => !existingNames.has(admin.name),
+      )
+    : [];
+  const admins = tournament.admins.map((admin) =>
+    admin.passwordHash && isSupabaseOnlyAdmin(tournament, admin)
+      ? { ...admin, passwordHash: "" }
+      : admin,
   );
 
-  const mergedSeedAdmins = seededAdmins.map((seededAdmin) => {
-    const existing = tournament.admins.find(
-      (admin) =>
-        normalizeAdminName(admin.name) === normalizeAdminName(seededAdmin.name),
-    );
-
-    return existing
-      ? {
-          ...existing,
-          passwordHash: seededAdmin.passwordHash,
-        }
-      : seededAdmin;
-  });
-
-  const mergedAdmins = [...preservedAdmins, ...mergedSeedAdmins];
   const changed =
-    mergedAdmins.length !== tournament.admins.length ||
-    mergedAdmins.some((admin, index) => {
-      const current = tournament.admins[index];
-      return (
-        !current ||
-        current.name !== admin.name ||
-        current.passwordHash !== admin.passwordHash
-      );
-    });
-
+    missingLegacyAdmins.length > 0 ||
+    admins.some((admin, index) => admin !== tournament.admins[index]);
   if (!changed) {
     return tournament;
   }
@@ -137,19 +121,15 @@ export async function reconcileLegacyTournamentAdmins(
   return {
     ...tournament,
     trophyImage: tournament.trophyImage || getDefaultTrophyImage(),
-    admins: mergedAdmins,
+    admins: [...admins, ...missingLegacyAdmins],
     updatedAt: Date.now(),
   };
 }
 
-export async function reconcilePlatformAdmins(
+export function reconcilePlatformAdmins(
   platform: PlatformState,
-): Promise<PlatformState> {
-  const tournaments = await Promise.all(
-    platform.tournaments.map((tournament) =>
-      reconcileLegacyTournamentAdmins(tournament),
-    ),
-  );
+): PlatformState {
+  const tournaments = platform.tournaments.map(reconcileTournamentAdmins);
 
   const changed = tournaments.some(
     (tournament, index) => tournament !== platform.tournaments[index],
@@ -194,7 +174,10 @@ async function loginWithSupabase(
   password: string,
 ): Promise<{ success: boolean; admin?: Admin; error?: string }> {
   if (!supabase) {
-    return { success: false, error: "Supabase not configured" };
+    return {
+      success: false,
+      error: "Admin login needs Supabase (SUPABASE_URL and SUPABASE_ANON_KEY)",
+    };
   }
 
   try {
@@ -211,7 +194,10 @@ async function loginWithSupabase(
     }
 
     const matched = Array.isArray(adminData) ? adminData[0] : null;
-    if (!matched || String(matched.name).toLowerCase().trim() !== "abhinav") {
+    if (
+      !matched ||
+      String(matched.name).toLowerCase().trim() !== GLOBAL_ADMIN_NAME
+    ) {
       return { success: false, error: "Invalid global admin password" };
     }
 
@@ -224,7 +210,7 @@ async function loginWithSupabase(
   }
 }
 
-async function verifyLegacyAdminWithSupabase(
+async function verifyAdminWithSupabase(
   adminName: string,
   password: string,
 ): Promise<Admin | null> {
@@ -266,22 +252,6 @@ async function verifyLegacyAdminWithSupabase(
   }
 }
 
-async function loginWithFallback(
-  password: string,
-): Promise<{ success: boolean; admin?: Admin; error?: string }> {
-  const matched = LEGACY_ADMIN_SEEDS.find(
-    (seed) => seed.name === "abhinav" && seed.password === password.trim(),
-  );
-
-  if (!matched) {
-    return { success: false, error: "Invalid global admin password" };
-  }
-
-  const admin: Admin = { id: "global-admin-abhinav", name: "abhinav" };
-  await saveGlobalSession(admin);
-  return { success: true, admin };
-}
-
 export const globalAuth = {
   isAuthenticated: async (): Promise<boolean> => {
     return Boolean(await readGlobalSession());
@@ -291,17 +261,7 @@ export const globalAuth = {
     return readGlobalSession();
   },
 
-  login: async (
-    password: string,
-  ): Promise<{ success: boolean; admin?: Admin; error?: string }> => {
-    if (supabase) {
-      const result = await loginWithSupabase(password);
-      if (result.success || result.error !== "Supabase not configured") {
-        return result;
-      }
-    }
-    return loginWithFallback(password);
-  },
+  login: loginWithSupabase,
 
   logout: async (): Promise<void> => {
     await sessionStorage.removeItem(GLOBAL_AUTH_STORAGE_KEY);
@@ -329,69 +289,28 @@ export async function verifyTournamentAdmin(
   );
   if (matched) return matched;
 
-  if (normalizeAdminName(adminName) === "abhinav") {
-    const supabaseMatched = await verifyLegacyAdminWithSupabase(
-      adminName,
-      password,
-    );
-    if (supabaseMatched) {
-      return (
-        tournament.admins.find(
-          (admin) =>
-            normalizeAdminName(admin.name) ===
-            normalizeAdminName(supabaseMatched.name),
-        ) ?? {
-          id: supabaseMatched.id,
-          name: supabaseMatched.name,
-          passwordHash,
-          createdAt: Date.now(),
-        }
-      );
-    }
-
-    const seededAbhinav = LEGACY_ADMIN_SEEDS.find(
-      (seed) =>
-        normalizeAdminName(seed.name) === "abhinav" &&
-        seed.password === password.trim(),
-    );
-    if (seededAbhinav) {
-      return (
-        tournament.admins.find(
-          (admin) => normalizeAdminName(admin.name) === "abhinav",
-        ) ?? {
-          id: "default-admin-abhinav",
-          name: "abhinav",
-          passwordHash,
-          createdAt: Date.now(),
-        }
-      );
-    }
+  if (
+    normalizeAdminName(adminName) !== GLOBAL_ADMIN_NAME &&
+    !isLegacyTournament(tournament)
+  ) {
+    return null;
   }
 
-  if (isLegacyTournament(tournament)) {
-    const fallback = LEGACY_ADMIN_SEEDS.find(
-      (seed) =>
-        normalizeAdminName(seed.name) === normalizeAdminName(adminName) &&
-        seed.password === password.trim(),
-    );
+  const supabaseMatched = await verifyAdminWithSupabase(adminName, password);
+  if (!supabaseMatched) return null;
 
-    if (fallback) {
-      return (
-        tournament.admins.find(
-          (admin) =>
-            normalizeAdminName(admin.name) ===
-            normalizeAdminName(fallback.name),
-        ) ?? {
-          id: `legacy-admin-${fallback.name}`,
-          name: fallback.name,
-          passwordHash,
-          createdAt: Date.now(),
-        }
-      );
+  return (
+    tournament.admins.find(
+      (admin) =>
+        normalizeAdminName(admin.name) ===
+        normalizeAdminName(supabaseMatched.name),
+    ) ?? {
+      id: supabaseMatched.id,
+      name: supabaseMatched.name,
+      passwordHash: "",
+      createdAt: Date.now(),
     }
-  }
-
-  return null;
+  );
 }
 
 export function appendTournamentAdminAudit(
