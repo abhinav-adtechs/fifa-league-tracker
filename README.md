@@ -233,7 +233,7 @@ fifa-league-tracker/
 │   └── sessionStorage.ts    # localStorage (web) / Capacitor Preferences (iOS)
 ├── supabase_auth_setup.sql  # admin_passwords, audit table, verify_admin_password()
 ├── fix_function.sql         # Recreates verify_admin_password()
-├── sql/                     # One-off admin SQL
+├── sql/                     # set_admin_password.sql: add an admin or change a password
 ├── public/                  # PWA manifest, icons, FC26 shield
 └── ios/                     # Capacitor iOS project
 ```

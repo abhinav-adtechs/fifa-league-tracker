@@ -15,7 +15,7 @@ npm ci
 npm run dev        # http://localhost:3000
 ```
 
-No backend is required: without Supabase variables the app keeps everything in `localStorage`, which is the easiest way to develop. To test against Supabase, copy `.env.example` to `.env.local`, fill in a **development** project's URL and anon key, and follow [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) to create the tables.
+No backend is required: without Supabase variables the app keeps everything in `localStorage`, which is the easiest way to develop. Admin sign-in has no offline fallback, so admin features need Supabase. To test against Supabase, copy `.env.example` to `.env.local`, fill in a **development** project's URL and anon key, and follow [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) to create the tables.
 
 ### Checks
 

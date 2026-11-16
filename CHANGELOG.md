@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/). Versions before 1.0.0 were tagged retroactively at milestone commits.
 
+## [Unreleased]
+
+### Security
+
+- Removed hard-coded admin passwords from the client bundle and SQL scripts. Admin sign-in for the global admin and the legacy league's admins now goes only through the `verify_admin_password` RPC, with no offline fallback, and their old SHA-256 hashes are cleared from the stored platform state on load.
+- `supabase_auth_setup.sql` turns on row-level security for `admin_passwords` and `admin_login_audit`.
+
+### Changed
+
+- Replaced the per-admin SQL scripts with `sql/set_admin_password.sql` (placeholders, refuses to run unedited).
+
 ## [1.0.0] — 2026-11-16
 
 From a single league to a tournament platform. This release also adds the project documentation.
@@ -57,6 +68,7 @@ The first complete league tracker.
 
 - The Gemini match-commentary service from the original scaffold (`63ba68d`).
 
+[Unreleased]: https://github.com/abhinav-adtechs/fifa-league-tracker/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/abhinav-adtechs/fifa-league-tracker/compare/v0.3.0...v1.0.0
 [0.3.0]: https://github.com/abhinav-adtechs/fifa-league-tracker/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/abhinav-adtechs/fifa-league-tracker/compare/v0.1.0...v0.2.0

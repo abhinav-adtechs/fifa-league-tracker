@@ -46,19 +46,19 @@ create policy "anon update matches" on public.matches_state for update to anon u
 
 ### Admin password function
 
-[`supabase_auth_setup.sql`](../supabase_auth_setup.sql) creates the `admin_passwords` table (bcrypt hashes via `pgcrypto`), an `admin_login_audit` table, the `verify_admin_password(plain_password)` RPC and an `admin_login_summary` view.
+[`supabase_auth_setup.sql`](../supabase_auth_setup.sql) creates the `admin_passwords` table (bcrypt hashes via `pgcrypto`), an `admin_login_audit` table, the `verify_admin_password(plain_password)` RPC and an `admin_login_summary` view, and turns on row-level security for both tables so the anon key cannot read them.
 
-Before running it, **edit Step 4** to insert your own admin names and passwords, and delete the reference comment block at the end of the file. If the RPC ever goes missing, [`fix_function.sql`](../fix_function.sql) recreates it.
+Then add each admin with [`sql/set_admin_password.sql`](../sql/set_admin_password.sql): replace the two placeholders, run it, and clear the editor. Run the same script to change a password. Never commit real passwords. If the RPC ever goes missing, [`fix_function.sql`](../fix_function.sql) recreates it.
 
 Finally, copy the project URL and **anon** key from _Settings → API_.
 
 ## 2. Admins
 
-- The **global admin** (who can create tournaments) is verified through `verify_admin_password`, and `services/auth.ts` only accepts one specific admin name for that role. Change that name check in `loginWithSupabase` to match the admin you inserted.
-- **Tournament admins** are stored per tournament (name + SHA-256 hash) and managed from the tournament's _Settings_ tab.
+- The **global admin** (who can create tournaments) is verified through `verify_admin_password`, and `services/auth.ts` only accepts one admin name for that role (`GLOBAL_ADMIN_NAME`). Change it to match the admin you inserted.
+- **Tournament admins** are stored per tournament (name + SHA-256 hash) and managed from the tournament's _Settings_ tab. The global admin is added to every new tournament without a local hash and signs in through `verify_admin_password`, as do the original league's admins (`LEGACY_ADMIN_NAMES`) in the legacy tournament.
 
-> [!WARNING]
-> `services/auth.ts` contains seed admin entries (`LEGACY_ADMIN_SEEDS`) from the original league. They are used as a fallback when Supabase is not configured and as the default admin for new tournaments. Replace them with your own before deploying an instance.
+> [!NOTE]
+> No passwords ship in the client bundle and there is no offline fallback: the global admin needs Supabase to sign in.
 
 ## 3. Web hosting
 
